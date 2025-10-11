@@ -6,6 +6,7 @@ import { GameSpec } from "@/lib/types";
 import gsap from "gsap";
 import { StoryContext } from "./StoryContext";
 import { BookOpen, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
+import { getAuthHeaders } from "@/lib/auth";
 
 interface FreeWritingGameProps {
   spec: GameSpec;
@@ -49,7 +50,10 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
     try {
       const response = await fetch("/api/evaluation/validate-writing", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders()
+        },
         body: JSON.stringify({
           text,
           level: spec.level,
