@@ -15,8 +15,10 @@ router.get('/:gameId', requireAuth, async (req: AuthRequest, res) => {
       return res.status(404).json(createErrorResponse('Game not found'));
     }
 
+    console.log('[Games API] Exercise from DB:', JSON.stringify(exercise, null, 2));
+
     // Transform to GameSpec format expected by frontend
-    res.json(createSuccessResponse({
+    const response = {
       id: exercise.id,
       storyId: exercise.storyId,
       gameType: exercise.gameType,
@@ -31,7 +33,11 @@ router.get('/:gameId', requireAuth, async (req: AuthRequest, res) => {
           hints: exercise.hints || [],
         }
       },
-    }));
+    };
+
+    console.log('[Games API] Response payload:', JSON.stringify(response, null, 2));
+    
+    res.json(createSuccessResponse(response));
 
   } catch (error) {
     console.error('Get game error:', error);
