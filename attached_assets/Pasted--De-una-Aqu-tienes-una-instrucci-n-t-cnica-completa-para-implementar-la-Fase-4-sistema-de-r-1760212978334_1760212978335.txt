@@ -1,0 +1,230 @@
+¡De una! Aquí tienes una **instrucción técnica completa** para implementar la **Fase 4: sistema de roles y portal de acceso** (con Google Login opcional, perfiles editables, reseteo de contraseña, planes/gratis–premium con control parental) **end-to-end** y con **controles SOC 2 y GDPR** en mente. Incluye decisiones de arquitectura, flujos, modelo de datos, seguridad, cumplimiento y tareas accionables.
+
+---
+
+# Fase 4 — Autenticación, Roles, Portal de Acceso y Suscripciones (SOC2/GDPR-ready)
+
+## 1) Decisión de arquitectura de identidad
+
+**Recomendación:** usar **Amazon Cognito (User Pools)** como IdP principal y **federar Google** como proveedor de identidad OIDC.
+
+* **Por qué Cognito**: gestiona alta de usuarios, políticas de contraseña, MFA, tokens, APIs seguras y buenas prácticas nativas (WAF, secretos, least-privilege, etc.). ([Documentación de AWS][1])
+* **Google Sign-In**: integrar vía OAuth 2.0 / Google Identity Services (GIS) siguiendo mejores prácticas. ([Google for Developers][2])
+
+> Alternativa: usar directamente GIS o Firebase Identity. Mantén el backend desacoplado (JWT estándar) para poder cambiar IdP sin tocar la lógica de negocio. ([Google Cloud][3])
+
+---
+
+## 2) Roles, perfiles y control parental
+
+**Roles mínimos (RBAC):**
+
+* `child` (alumno/a)
+* `parent` (tutor/a)
+* `therapist` (opcional)
+* `admin` (operación)
+
+**Vinculación padre-hijo:**
+
+* `Parent` es el titular de la cuenta de facturación y del consentimiento.
+* `Child` hereda plan del `Parent`, con **controles parentales** (p. ej. límite de sesiones, horario, bloqueo TTS, etc.).
+
+**Atributos de perfil editables:** nombre para mostrar, preferencias de accesibilidad, idioma/región, zona horaria, objetivos de aprendizaje.
+
+> Gestionar atributos en Cognito + perfil extendido en DB (DynamoDB).
+
+---
+
+## 3) Flujos de autenticación y portal
+
+### 3.1 Alta con email/contraseña (Cognito)
+
+1. Usuario inicia registro (email + contraseña + país + edad del menor si aplica).
+2. reCAPTCHA v3/Turnstile en formularios (signup/reset) + rate limiting en API Gateway. ([Google for Developers][4])
+3. Verificación de email.
+4. **Consentimiento**: tildar “Acepto Política de Privacidad y Términos” (guardar **timestamp, IP, versión del documento**).
+5. Si el usuario declara ser **padre/madre/tutor**, se habilita creación/enlace de perfil `child`.
+
+### 3.2 “Entrar con Google”
+
+1. Botón “Continuar con Google” → flujo OAuth 2.0 (PKCE).
+2. Recibir `id_token` de Google, validarlo y **provisionar** usuario en Cognito (federado). ([Google for Developers][2])
+
+### 3.3 Reset/recovery
+
+* Flujo estándar de “olvidé contraseña” por Cognito (correo + código).
+* Bloqueo incremental ante intentos fallidos (defensa contra fuerza bruta). ([Documentación de AWS][1])
+
+---
+
+## 4) Planes y facturación (gratis/premium)
+
+**Modelo:**
+
+* **Free**: 3 historias/día por alumno.
+* **Premium**: historias ilimitadas por alumno; **suscripción mensual por alumno** (el Parent paga).
+
+**Implementación Stripe (recomendada):**
+
+* Productos/planes: `child_premium_monthly`.
+* **SCA/PSD2** para la UE con 3D Secure 2 integrado (Stripe Billing soporta SCA). ([Documentación de Stripe][5])
+* Webhooks para **entitlements**: al cobrar con éxito, marcar plan activo en DB; al fallar, “grace period” y luego degradar a Free.
+
+---
+
+## 5) Cumplimiento legal clave (GDPR / COPPA / SOC 2)
+
+### 5.1 GDPR — menores y consentimiento
+
+* **Artículo 8 GDPR**: consentimiento parental cuando el menor es menor de 16 años, con posibilidad de **rango 13–16** según el Estado miembro. Necesitas verificación del titular parental. ([gdpr-info.eu][6])
+* **Principios**: **minimización de datos**, finalidad, y limitación de conservación (retención). Registra solo lo necesario y define plazos de borrado. ([ico.org.uk][7])
+* **Notificación de brechas**: al regulador **≤72 horas** desde el conocimiento de la brecha; documentar incidentes. ([gdpr-info.eu][8])
+
+### 5.2 COPPA (si operas o tienes usuarios en EE. UU., <13 años)
+
+* **Consentimiento paterno verificable** antes de recolectar datos de menores; retención limitada a lo necesario. Mantener registro del método de verificación. ([Federal Trade Commission][9])
+
+### 5.3 SOC 2 (Trust Services Criteria)
+
+* Implementa controles en **Seguridad, Disponibilidad, Integridad del procesamiento, Confidencialidad y Privacidad**. Define políticas y evidencias (accesos, cambios, vulnerabilidades, continuidad). ([AICPA CIMA][10])
+
+---
+
+## 6) Controles de seguridad (resumen práctico)
+
+* **Cognito**: políticas de password/MFA, rotación de claves, mínimo privilegio, sanitizar atributos, WAF delante del flujo de login. ([Documentación de AWS][1])
+* **Bots y abuso**: reCAPTCHA v3/Turnstile + honeypot; aplicar en **registro** y opcional en **login tras N intentos**. ([Google for Developers][4])
+* **Tokens**: validar expiración y audiencia; rotación de refresh tokens; revocación en logout.
+* **Cifrado**: TLS en tránsito; KMS/SSE para S3 y DynamoDB.
+* **Registro de consentimientos**: versión de política, timestamp, IP, user-agent.
+* **DPIA** para tratamiento de datos de menores (riesgo alto).
+* **Breach runbook** con reloj de 72h y plantillas de notificación. ([gdpr-info.eu][8])
+
+---
+
+## 7) Modelo de datos (DynamoDB – claves indicativas)
+
+* `Users { userId (PK), role, email, region, consent: { version, ts, ip }, idp: { type, sub } }`
+* `Parents { parentId (PK), billingCustomerId, policyAcceptance[] }`
+* `Children { childId (PK), parentId (GSI), prefs, planTier }`
+* `Entitlements { userId+resource (PK), quotaDaily, renewAt }`
+* `AuditConsents { userId+version (PK), docType, ts, ip }`
+* `Subscriptions { parentId (PK), status, plan, seats, stripeSubId }`
+
+---
+
+## 8) Lógica de cuotas (Free vs Premium)
+
+* **Contador diario** por `childId` (`quotaDailyUsed`), reinicio a medianoche (EventBridge).
+* Al alcanzar 3 historias en Free → UI muestra paywall y link a upgrade (Stripe Checkout).
+* En Premium, `quotaDaily = ∞` (control por flag).
+
+---
+
+## 9) Flujos UX críticos (diagramados en texto)
+
+### 9.1 Registro (Parent con email/password)
+
+1. Form → valida reCAPTCHA v3 → POST `/auth/signup` (Cognito SignUp). ([Google for Developers][4])
+2. Email verification.
+3. Mostrar **ToS + Privacy** → check obligatorio → guardar **consent log** (versión y ts).
+4. Crear `Parent` y permitir **“Añadir hijo/a”** (crea `Child` y lo enlaza).
+5. Asignar plan `FREE`.
+
+### 9.2 Entrar con Google (Parent)
+
+1. “Sign in with Google” → OAuth PKCE (GIS) → `id_token`. ([Google for Developers][2])
+2. Back valida firma y audiencia → provisiona/actualiza `Users` (federado).
+3. Si falta consentimiento vigente, forzar pantalla legal y registrar.
+
+### 9.3 Reset de contraseña
+
+* Cognito Forgot Password → código vía email → set new password.
+
+### 9.4 Upgrade a Premium
+
+1. Parent pulsa “Mejorar plan” → Stripe Checkout (SCA/3DS2 si aplica UE). ([Documentación de Stripe][5])
+2. Webhook `invoice.payment_succeeded` → activar plan; `payment_failed` → grace period y degradación.
+
+---
+
+## 10) Políticas y documentos legales (mínimos)
+
+* **Política de Privacidad** (GDPR/COPPA): bases legales, categorías de datos, retención, derechos ARCO/DSAR, subprocesadores, transferencias, contacto DPO.
+* **Términos de Servicio**: uso aceptable, límites de edad, responsabilidades, cancelación.
+* **Acuerdo de Encargado (DPA)** si hay clientes B2B (colegios/terapeutas).
+* **DPIA** para tratamiento de menores.
+* **Runbook de brechas (72h)** y **registro** de incidentes. ([gdpr-info.eu][8])
+
+---
+
+## 11) Endpoints (resumen)
+
+* `POST /auth/signup` (Cognito)
+* `POST /auth/login` (Cognito Hosted UI or custom)
+* `POST /auth/google` (intercambio OIDC → Cognito) ([Google for Developers][2])
+* `POST /auth/forgot` / `POST /auth/reset`
+* `GET /me` / `PATCH /me` (editar perfil y preferencias)
+* `POST /parents/children` (crear `child`)
+* `POST /billing/checkout` (Stripe) / Webhooks `/billing/webhook`
+* `GET /entitlements` (cuotas)
+
+---
+
+## 12) Checklist de implementación (equipo)
+
+**Identidad y roles**
+
+* [ ] Crear User Pool (Cognito) con políticas de password y MFA opcional. ([Documentación de AWS][1])
+* [ ] Configurar **federación Google** (OIDC) y probar flujo. ([Google for Developers][2])
+* [ ] Atributos por rol y grupos (`child`, `parent`, `therapist`, `admin`).
+* [ ] Endpoint para **consent logging** (versión, ts, ip, UA).
+
+**Seguridad**
+
+* [ ] WAF + rate limits en API Gateway; **reCAPTCHA v3** en signup/reset. ([Google for Developers][4])
+* [ ] Rotación de secretos / KMS; encriptar S3 y DynamoDB.
+* [ ] Auditoría de accesos (CloudTrail) y traces (X-Ray).
+* [ ] **Runbook de brechas 72h** documentado. ([gdpr-info.eu][8])
+
+**Suscripciones**
+
+* [ ] Configurar Stripe Billing + productos/planes; **SCA** habilitada. ([Documentación de Stripe][5])
+* [ ] Webhooks (alta/baja/impago) → actualizar `Subscriptions` y `Entitlements`.
+
+**Legal**
+
+* [ ] Política de Privacidad + ToS (versionadas).
+* [ ] Verificación **parental** (GDPR Art. 8; edades 13–16 según país; COPPA <13 EE. UU.). ([gdpr-info.eu][6])
+* [ ] **Minimización y retención**: definir campos mínimos y TTL/borrado. ([ico.org.uk][7])
+
+**Experiencia**
+
+* [ ] Portal `parent`: gestión de hijos, límites, horario, TTS on/off.
+* [ ] Portal `child`: acceso simplificado (sin pagos ni legales).
+* [ ] Multi-idioma, accesibilidad (alto contraste, `prefers-reduced-motion`).
+
+---
+
+## 13) Apéndice: detalles clave de cumplimiento (para documentación)
+
+* **GDPR Art. 8**: consentimiento parental para servicios ofrecidos directamente a menores; umbral **13–16** depende del país. ([gdpr-info.eu][6])
+* **Data minimisation**: solo lo necesario; no recolectar voz/foto del niño salvo necesidad justificada. ([ico.org.uk][7])
+* **Breach notification**: **72 horas** a la autoridad (documentar hechos/impacto/medidas). ([gdpr-info.eu][8])
+* **COPPA**: si hay usuarios en EE. UU. menores de 13, exige **consentimiento verificable** de padres y reglas estrictas de retención/uso. ([Federal Trade Commission][9])
+* **SOC 2**: demuestra controles en los **5 criterios** (seguridad, disponibilidad, integridad, confidencialidad, privacidad). ([AICPA CIMA][10])
+
+---
+
+### ¿Quieres que lo convierta en un **conjunto de tickets** (épicas + historias de usuario + criterios de aceptación) y un **OpenAPI** de autenticación/billing para empezar a codificar ya?
+
+[1]: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-security-best-practices.html?utm_source=chatgpt.com "Security best practices for Amazon Cognito user pools"
+[2]: https://developers.google.com/identity/protocols/oauth2?utm_source=chatgpt.com "Using OAuth 2.0 to Access Google APIs | Authorization"
+[3]: https://cloud.google.com/identity-platform/docs/web/google?utm_source=chatgpt.com "Sign in users with Google | Identity Platform"
+[4]: https://developers.google.com/recaptcha/docs/v3?utm_source=chatgpt.com "reCAPTCHA v3"
+[5]: https://docs.stripe.com/strong-customer-authentication?utm_source=chatgpt.com "Strong Customer Authentication readiness"
+[6]: https://gdpr-info.eu/art-8-gdpr/?utm_source=chatgpt.com "Art. 8 GDPR – Conditions applicable to child's consent in ..."
+[7]: https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-principles/a-guide-to-the-data-protection-principles/data-minimisation/?utm_source=chatgpt.com "Principle (c): Data minimisation | ICO"
+[8]: https://gdpr-info.eu/art-33-gdpr/?utm_source=chatgpt.com "Art. 33 GDPR – Notification of a personal data breach ..."
+[9]: https://www.ftc.gov/business-guidance/privacy-security/verifiable-parental-consent-childrens-online-privacy-rule?utm_source=chatgpt.com "Verifiable Parental Consent and the Children's Online ..."
+[10]: https://www.aicpa-cima.com/topic/audit-assurance/audit-and-assurance-greater-than-soc-2?utm_source=chatgpt.com "SOC 2® - SOC for Service Organizations"
