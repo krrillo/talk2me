@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, varchar, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, varchar, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   level: integer("level").notNull().default(1),
   experiencePoints: integer("experience_points").notNull().default(0),
+  streak: integer("streak").notNull().default(0), // Consecutive days of activity
+  lastActivityDate: varchar("last_activity_date", { length: 10 }), // YYYY-MM-DD for streak tracking
   preferences: jsonb("preferences").default({}), // UI preferences, accessibility settings
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -24,10 +26,13 @@ export const users = pgTable("users", {
 export const stories = pgTable("stories", {
   id: uuid("id").defaultRandom().primaryKey(),
   title: varchar("title", { length: 200 }).notNull(),
-  level: integer("level").notNull(),
+  level: integer("level").notNull(), // 1-10
   theme: varchar("theme", { length: 50 }).notNull(),
   pages: jsonb("pages").notNull(), // Array of story pages with text and images
   vocabulary: jsonb("vocabulary").default([]), // Pre-teaching vocabulary with definitions and images
+  wordCount: integer("word_count"), // Total words in story
+  complexityIndex: integer("complexity_index"), // 1-10 complexity rating
+  targets: jsonb("targets").default([]), // ["vocabulario", "tiempo verbal", "estructura gramatical"]
   aiMetadata: jsonb("ai_metadata"), // Generation prompts, model info, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -37,8 +42,10 @@ export const stories = pgTable("stories", {
 export const exercises = pgTable("exercises", {
   id: uuid("id").defaultRandom().primaryKey(),
   storyId: uuid("story_id").notNull().references(() => stories.id),
-  gameType: varchar("game_type", { length: 50 }).notNull(), // drag_words, order_sentence, etc.
-  level: integer("level").notNull(),
+  gameType: varchar("game_type", { length: 50 }).notNull(), // drag_words, order_sentence, complete_words, multi_choice, rewrite_sentence, find_error, contextual_choice
+  level: integer("level").notNull(), // User level
+  difficulty: integer("difficulty"), // 1-10 exercise difficulty
+  focus: jsonb("focus").default([]), // ["ortografía", "semántica", "gramática"]
   exerciseData: jsonb("exercise_data").notNull(), // Game-specific configuration
   correctAnswer: jsonb("correct_answer").notNull(),
   hints: jsonb("hints").default([]),
@@ -54,6 +61,10 @@ export const progress = pgTable("progress", {
   storyId: uuid("story_id").notNull().references(() => stories.id),
   correct: boolean("correct").notNull(),
   score: integer("score").notNull(), // 0-100
+  pointsEarned: integer("points_earned").default(0), // Points from this exercise
+  accuracy: real("accuracy"), // 0.0-1.0
+  bonus: integer("bonus").default(0), // Bonus points (streak, perfect score, etc.)
+  streak: integer("streak").default(0), // Current streak at time of completion
   timeSpent: integer("time_spent").notNull(), // seconds
   attempts: integer("attempts").notNull().default(1),
   responseData: jsonb("response_data"), // User's actual responses
@@ -103,6 +114,27 @@ export const consents = pgTable("consents", {
   userAgent: text("user_agent"),
 });
 
+// User Stories table - track user story history and status
+export const userStories = pgTable("user_stories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  storyId: uuid("story_id").notNull().references(() => stories.id),
+  level: integer("level").notNull().default(1), // Denormalized from story for efficient filtering
+  status: varchar("status", { length: 20 }).notNull().default("available"), // available, in_progress, completed
+  pointsEarned: integer("points_earned").default(0),
+  averageAccuracy: real("average_accuracy"), // 0.0-1.0
+  totalTimeSpent: integer("total_time_spent").default(0), // seconds
+  exercisesCompleted: integer("exercises_completed").default(0),
+  lastPlayedAt: timestamp("last_played_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("idx_user_stories_user_id").on(table.userId),
+  userLevelIdx: index("idx_user_stories_user_level").on(table.userId, table.level),
+  userStatusIdx: index("idx_user_stories_status").on(table.userId, table.status),
+  userStoryIdx: index("idx_user_stories_user_story").on(table.userId, table.storyId),
+}));
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -148,6 +180,13 @@ export const insertConsentSchema = createInsertSchema(consents).omit({
 
 export const selectConsentSchema = createSelectSchema(consents);
 
+export const insertUserStorySchema = createInsertSchema(userStories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const selectUserStorySchema = createSelectSchema(userStories);
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -163,3 +202,5 @@ export type Session = typeof sessions.$inferSelect;
 export type DailyProgress = typeof dailyProgress.$inferSelect;
 export type Consent = typeof consents.$inferSelect;
 export type InsertConsent = typeof consents.$inferInsert;
+export type UserStory = typeof userStories.$inferSelect;
+export type InsertUserStory = typeof userStories.$inferInsert;
