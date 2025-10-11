@@ -118,91 +118,96 @@ export const ORDER_SENTENCE_BY_LEVEL: Record<number, ExerciseTemplate> = {
  */
 export const COMPLETE_WORDS_BY_LEVEL: Record<number, ExerciseTemplate> = {
   1: {
-    instruction: "Extraer oración del texto, remover verbo básico (es, está, tiene).",
+    instruction: "Extraer oración del texto, remover verbo básico (es, está, tiene). IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'El gato es negro.' → sentence: 'El gato ___ negro.' → correct: 'es'",
-      "Texto: 'Ana tiene un perro.' → sentence: 'Ana ___ un perro.' → correct: 'tiene'"
+      "Texto: 'El gato es negro.' → sentence: 'El gato___negro.' → correct: 'es'",
+      "Texto: 'Ana tiene un perro.' → sentence: 'Ana___un perro.' → correct: 'tiene'"
     ],
     rules: [
       "Oración DEBE existir literalmente en el texto",
       "Remover solo: es, está, tiene, come, juega",
+      "Usar exactamente ___ (tres guiones bajos juntos, SIN ESPACIOS antes/después)",
       "La palabra removida es la respuesta correcta",
       "NO inventar palabras"
     ]
   },
   2: {
-    instruction: "Extraer oración del texto, remover artículo o adjetivo.",
+    instruction: "Extraer oración del texto, remover artículo o adjetivo. IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'La niña pequeña juega.' → sentence: 'La niña ___ juega.' → correct: 'pequeña'",
-      "Texto: 'Un perro grande ladra.' → sentence: '___ perro grande ladra.' → correct: 'Un'"
+      "Texto: 'La niña pequeña juega.' → sentence: 'La niña___juega.' → correct: 'pequeña'",
+      "Texto: 'Un perro grande ladra.' → sentence: '___perro grande ladra.' → correct: 'Un'"
     ],
     rules: [
       "Oración literal del texto",
       "Remover artículo (el/la/un/una) o adjetivo",
+      "Usar exactamente ___ (tres guiones bajos juntos, SIN ESPACIOS)",
       "Enseñar concordancia"
     ]
   },
   3: {
-    instruction: "Extraer oración del texto, remover conector (porque, y, pero, cuando).",
+    instruction: "Extraer oración del texto, remover conector (porque, y, pero, cuando). IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'Pedro juega porque está feliz.' → sentence: 'Pedro juega ___ está feliz.' → correct: 'porque'",
-      "Texto: 'Ana lee y escribe.' → sentence: 'Ana lee ___ escribe.' → correct: 'y'"
+      "Texto: 'Pedro juega porque está feliz.' → sentence: 'Pedro juega___está feliz.' → correct: 'porque'",
+      "Texto: 'Ana lee y escribe.' → sentence: 'Ana lee___escribe.' → correct: 'y'"
     ],
     rules: [
       "Oración EXACTA del texto",
       "Remover conector que enseñe cohesión",
+      "Usar exactamente ___ (tres guiones bajos juntos, SIN ESPACIOS)",
       "La palabra debe estar EN el texto"
     ]
   },
   4: {
-    instruction: "Extraer oración del texto, remover verbo conjugado (presente/pasado).",
+    instruction: "Extraer oración del texto, remover verbo conjugado (presente/pasado). IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'Los niños jugaron ayer.' → sentence: 'Los niños ___ ayer.' → correct: 'jugaron'",
-      "Texto: 'María escribe cartas.' → sentence: 'María ___ cartas.' → correct: 'escribe'"
+      "Texto: 'Los niños jugaron ayer.' → sentence: 'Los niños___ayer.' → correct: 'jugaron'",
+      "Texto: 'María escribe cartas.' → sentence: 'María___cartas.' → correct: 'escribe'"
     ],
     rules: [
       "Literal del texto",
       "Remover verbo conjugado",
+      "Usar exactamente ___ (tres guiones bajos juntos, SIN ESPACIOS)",
       "Enseñar conjugación"
     ]
   },
   5: {
-    instruction: "Extraer oración del texto, remover palabra de subordinación (que, donde, cuando).",
+    instruction: "Extraer oración del texto, remover palabra de subordinación (que, donde, cuando). IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'El niño que lee es inteligente.' → sentence: 'El niño ___ lee es inteligente.' → correct: 'que'"
+      "Texto: 'El niño que lee es inteligente.' → sentence: 'El niño___lee es inteligente.' → correct: 'que'"
     ],
     rules: [
       "Extraer literal",
       "Remover subordinante",
+      "Usar exactamente ___ (tres guiones bajos juntos, SIN ESPACIOS)",
       "Enseñar subordinadas"
     ]
   },
   6: {
-    instruction: "Extraer oración, remover auxiliar de tiempo compuesto.",
+    instruction: "Extraer oración, remover auxiliar de tiempo compuesto. IMPORTANTE: usar ___ sin espacios alrededor.",
     examples: [
-      "Texto: 'Pedro ha terminado.' → sentence: 'Pedro ___ terminado.' → correct: 'ha'"
+      "Texto: 'Pedro ha terminado.' → sentence: 'Pedro___terminado.' → correct: 'ha'"
     ],
-    rules: ["Literal", "Tiempos compuestos"]
+    rules: ["Literal", "Usar ___ sin espacios", "Tiempos compuestos"]
   },
   7: {
-    instruction: "Extraer oración, remover preposición o nexo complejo.",
-    examples: ["Literal del texto"],
-    rules: ["Preposiciones precisas"]
+    instruction: "Extraer oración, remover preposición o nexo complejo. IMPORTANTE: usar ___ sin espacios alrededor.",
+    examples: ["Texto literal, usar ___ sin espacios"],
+    rules: ["Preposiciones precisas", "Usar ___ sin espacios"]
   },
   8: {
-    instruction: "Extraer oración, remover palabra clave del modismo.",
-    examples: ["Literal"],
-    rules: ["Lenguaje figurado"]
+    instruction: "Extraer oración, remover palabra clave del modismo. IMPORTANTE: usar ___ sin espacios alrededor.",
+    examples: ["Texto literal, usar ___ sin espacios"],
+    rules: ["Lenguaje figurado", "Usar ___ sin espacios"]
   },
   9: {
-    instruction: "Extraer oración, remover elemento de voz pasiva.",
-    examples: ["Literal"],
-    rules: ["Voz pasiva"]
+    instruction: "Extraer oración, remover elemento de voz pasiva. IMPORTANTE: usar ___ sin espacios alrededor.",
+    examples: ["Texto literal, usar ___ sin espacios"],
+    rules: ["Voz pasiva", "Usar ___ sin espacios"]
   },
   10: {
-    instruction: "Extraer oración compleja, remover nexo subordinante.",
-    examples: ["Literal"],
-    rules: ["Subordinadas múltiples"]
+    instruction: "Extraer oración compleja, remover nexo subordinante. IMPORTANTE: usar ___ sin espacios alrededor.",
+    examples: ["Texto literal, usar ___ sin espacios"],
+    rules: ["Subordinadas múltiples", "Usar ___ sin espacios"]
   }
 };
 
