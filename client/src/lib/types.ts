@@ -20,6 +20,7 @@ export interface Story {
 export interface StoryPage {
   text: string;
   image?: string;
+  imageUrl?: string;
 }
 
 export interface GameSpec {

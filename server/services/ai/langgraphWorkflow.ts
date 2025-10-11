@@ -5,13 +5,14 @@ import { db } from "../../lib/db.js";
 import { stories, exercises, assets } from "@shared/schema";
 
 interface WorkflowState {
-  userId: number;
+  userId: string;
   level: number;
   theme?: string;
   storyId?: string;
   storyContent?: any;
   storyPages?: any[];
   imageUrls?: string[];
+  exercises?: any[];
   exercisesGenerated?: boolean;
   error?: string;
 }
@@ -35,6 +36,7 @@ export class MultimodalLearningWorkflow {
         storyContent: null,
         storyPages: null,
         imageUrls: null,
+        exercises: null,
         exercisesGenerated: null,
         error: null,
       }
@@ -46,12 +48,12 @@ export class MultimodalLearningWorkflow {
     workflow.addNode("generate_exercises", this.generateExercisesNode.bind(this));
     workflow.addNode("save_assets", this.saveAssetsNode.bind(this));
 
-    workflow.addEdge(START, "generate_story");
-    workflow.addEdge("generate_story", "generate_images");
-    workflow.addEdge("generate_images", "save_story");
-    workflow.addEdge("save_story", "generate_exercises");
-    workflow.addEdge("generate_exercises", "save_assets");
-    workflow.addEdge("save_assets", END);
+    workflow.addEdge(START as any, "generate_story");
+    workflow.addEdge("generate_story" as any, "generate_images");
+    workflow.addEdge("generate_images" as any, "save_story");
+    workflow.addEdge("save_story" as any, "generate_exercises");
+    workflow.addEdge("generate_exercises" as any, "save_assets");
+    workflow.addEdge("save_assets" as any, END);
 
     return workflow.compile();
   }
@@ -60,15 +62,22 @@ export class MultimodalLearningWorkflow {
     try {
       console.log(`[Workflow] Generating story for level ${state.level}, theme: ${state.theme || 'auto'}`);
       
-      const result = await this.orchestrator.generateStory(
-        state.level,
-        state.theme || "daily life",
-        state.userId
-      );
+      const result = await this.orchestrator.generateStoryWithExercises({
+        level: state.level,
+        theme: state.theme || "daily life",
+        locale: "es-ES",
+      });
 
       return {
-        storyContent: result,
-        storyPages: result.pages || [],
+        storyContent: {
+          title: result.story.title,
+          pages: result.story.pages,
+          vocabulary: result.story.vocabulary || [],
+          grammar: result.story.grammarFocus || [],
+          content: result.story.pages.map((p: any) => p.text).join(' '),
+        },
+        storyPages: result.story.pages,
+        exercises: result.exercises || [],
       };
     } catch (error) {
       console.error("[Workflow] Story generation failed:", error);
@@ -144,32 +153,29 @@ export class MultimodalLearningWorkflow {
 
   private async generateExercisesNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
     try {
-      if (!state.storyId || !state.storyContent) {
-        throw new Error("No story ID or content for exercise generation");
+      if (!state.storyId || !state.exercises || state.exercises.length === 0) {
+        console.log("[Workflow] No exercises to save - using pre-generated exercises from story node");
+        if (!state.storyId) {
+          throw new Error("No story ID for exercise generation");
+        }
+        return { exercisesGenerated: false };
       }
 
-      console.log(`[Workflow] Generating exercises for story ${state.storyId}`);
+      console.log(`[Workflow] Saving ${state.exercises.length} exercises for story ${state.storyId}`);
 
-      const exerciseResult = await this.orchestrator.generateExercises(
-        state.storyId,
-        state.level,
-        state.storyContent.vocabulary || [],
-        state.storyContent.content
-      );
-
-      const exercisePromises = exerciseResult.exercises.map(async (exercise: any) => {
+      const exercisePromises = state.exercises.map(async (exercise: any) => {
         const [savedExercise] = await db.insert(exercises).values({
           storyId: state.storyId!,
-          gameType: exercise.type || "multiple_choice",
+          gameType: exercise.gameType || exercise.type || "multiple_choice",
           level: state.level,
           exerciseData: {
-            question: exercise.question,
-            options: exercise.options || [],
-            words: exercise.words || [],
-            sentence: exercise.sentence || "",
+            question: exercise.question || exercise.payload?.question,
+            options: exercise.options || exercise.payload?.options || [],
+            words: exercise.words || exercise.payload?.words || [],
+            sentence: exercise.sentence || exercise.payload?.sentence || "",
           },
-          correctAnswer: exercise.correctAnswer,
-          hints: exercise.hints || [],
+          correctAnswer: exercise.correctAnswer || exercise.payload?.correct || "",
+          hints: exercise.hints || exercise.payload?.hints || [],
           aiMetadata: {
             generatedBy: "gpt-4",
             generatedAt: new Date().toISOString(),
@@ -181,14 +187,14 @@ export class MultimodalLearningWorkflow {
 
       await Promise.all(exercisePromises);
 
-      console.log(`[Workflow] Generated and saved ${exerciseResult.exercises.length} exercises`);
+      console.log(`[Workflow] Saved ${state.exercises.length} exercises successfully`);
 
       return {
         exercisesGenerated: true,
       };
     } catch (error) {
-      console.error("[Workflow] Exercise generation failed:", error);
-      return { error: "Failed to generate exercises" };
+      console.error("[Workflow] Exercise saving failed:", error);
+      return { error: "Failed to save exercises" };
     }
   }
 
@@ -224,7 +230,7 @@ export class MultimodalLearningWorkflow {
     }
   }
 
-  async executeWorkflow(userId: number, level: number, theme?: string): Promise<any> {
+  async executeWorkflow(userId: string, level: number, theme?: string): Promise<any> {
     try {
       console.log(`[Workflow] Starting multimodal learning workflow for user ${userId}, level ${level}`);
 
