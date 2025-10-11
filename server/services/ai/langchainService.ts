@@ -366,6 +366,7 @@ export class LangChainOrchestrator {
       suggestion?: string;
     }>;
     strengths: string[];
+    correctedText?: string;
   }> {
     const grammarFocus = this.getGrammarFocusForLevel(level);
     const rubricText = rubric.length > 0 ? rubric.join(', ') : 'coherencia, ortografía, gramática';
@@ -406,7 +407,8 @@ export class LangChainOrchestrator {
         "strengths": [
           "Aspecto positivo 1",
           "Aspecto positivo 2"
-        ]
+        ],
+        "correctedText": "Versión corregida del texto del estudiante (solo si hay errores, sino el texto original)"
       }}
 
       IMPORTANTE:
@@ -414,6 +416,7 @@ export class LangChainOrchestrator {
       - Señala máximo 5 errores principales (prioriza los más importantes)
       - Siempre encuentra al menos 1 aspecto positivo
       - Usa lenguaje simple para niños
+      - Si hay errores, proporciona el texto completamente corregido en correctedText
     `);
 
     const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
@@ -442,6 +445,7 @@ export class LangChainOrchestrator {
         score: Math.min(100, Math.max(0, rawScore)),
         errors,
         strengths,
+        correctedText: result.correctedText || text,
       };
     } catch (error) {
       console.error("Error validating writing:", error);
@@ -455,6 +459,7 @@ export class LangChainOrchestrator {
           suggestion: "Revisa tu ortografía y gramática manualmente.",
         }],
         strengths: ["¡Buen intento! Tu esfuerzo es importante."],
+        correctedText: text,
       };
     }
   }

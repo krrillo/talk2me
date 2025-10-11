@@ -21,6 +21,7 @@ interface GrammarFeedback {
     suggestion?: string;
   }[];
   strengths: string[];
+  correctedText?: string;
 }
 
 function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
@@ -29,6 +30,7 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
   const [isValidating, setIsValidating] = useState(false);
   const [feedback, setFeedback] = useState<GrammarFeedback | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [showCorrectedVersion, setShowCorrectedVersion] = useState(false);
   const gameRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -118,7 +120,9 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
         }
       }
 
-      if (attempts >= 2 || result.errors.length === 0) {
+      if (result.errors.length > 0 && result.correctedText && result.correctedText !== trimmedText) {
+        setShowCorrectedVersion(true);
+      } else if (attempts >= 2 || result.errors.length === 0) {
         setTimeout(() => {
           setShowResult(true);
           onComplete({ 
@@ -134,6 +138,15 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
 
   const handleRetry = () => {
     setFeedback(null);
+    setShowCorrectedVersion(false);
+  };
+
+  const handleAcknowledgeCorrection = () => {
+    setShowResult(true);
+    onComplete({ 
+      correct: false, 
+      score: feedback?.score || 70 
+    });
   };
 
   const charCount = userText.length;
@@ -278,7 +291,36 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
                 </div>
               )}
 
-              {feedback.strengths.length > 0 && (
+              {showCorrectedVersion && feedback.correctedText && (
+                <div className="p-6 bg-blue-50 rounded-xl border-2 border-blue-300">
+                  <h3 className="font-bold text-xl mb-4 text-blue-900 flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-blue-600" />
+                    Aprende de la versión corregida
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 bg-white rounded-lg border border-gray-300">
+                      <p className="text-sm font-semibold text-gray-600 mb-2">Tu texto:</p>
+                      <p className="text-gray-800 italic">{userText}</p>
+                    </div>
+
+                    <div className="p-4 bg-green-50 rounded-lg border-2 border-green-400">
+                      <p className="text-sm font-semibold text-green-700 mb-2">✓ Versión corregida:</p>
+                      <p className="text-gray-900 font-medium">{feedback.correctedText}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleAcknowledgeCorrection}
+                    className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white text-lg py-6"
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    He entendido, continuar
+                  </Button>
+                </div>
+              )}
+
+              {feedback.strengths.length > 0 && !showCorrectedVersion && (
                 <div className="p-4 bg-green-50 rounded-xl border-l-4 border-green-400">
                   <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-green-600" />
@@ -292,7 +334,7 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
                 </div>
               )}
 
-              {attempts < 3 && feedback.errors.length > 0 && (
+              {attempts < 3 && feedback.errors.length > 0 && !showCorrectedVersion && (
                 <Button
                   onClick={handleRetry}
                   variant="outline"
