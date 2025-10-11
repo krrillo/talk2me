@@ -97,11 +97,16 @@ export default function StudentDashboard() {
   ];
 
   const levels = [
-    { level: 1, name: "Inicial", description: "Oraciones simples, 50-80 palabras" },
-    { level: 2, name: "Básico", description: "Vocabulario amplio, 80-100 palabras" },
-    { level: 3, name: "Intermedio", description: "Gramática media, 100-130 palabras" },
-    { level: 4, name: "Avanzado", description: "Estructuras complejas, 130-160 palabras" },
-    { level: 5, name: "Experto", description: "Subordinadas, 150-200 palabras" },
+    { level: 1, name: "Inicial", description: "50-80 palabras", emoji: "🌱", color: "from-green-400 to-emerald-500" },
+    { level: 2, name: "Básico", description: "80-100 palabras", emoji: "🌿", color: "from-emerald-400 to-teal-500" },
+    { level: 3, name: "Intermedio", description: "100-130 palabras", emoji: "🌳", color: "from-teal-400 to-cyan-500" },
+    { level: 4, name: "Avanzado", description: "130-160 palabras", emoji: "🎯", color: "from-cyan-400 to-blue-500" },
+    { level: 5, name: "Experto", description: "150-200 palabras", emoji: "⭐", color: "from-blue-400 to-indigo-500" },
+    { level: 6, name: "Intermedio Alto", description: "200-250 palabras", emoji: "✨", color: "from-indigo-400 to-purple-500" },
+    { level: 7, name: "Avanzado Alto", description: "250-300 palabras", emoji: "🚀", color: "from-purple-400 to-pink-500" },
+    { level: 8, name: "Profesional", description: "300-350 palabras", emoji: "💎", color: "from-pink-400 to-rose-500" },
+    { level: 9, name: "Literario", description: "350-400 palabras", emoji: "📖", color: "from-rose-400 to-orange-500" },
+    { level: 10, name: "Maestro", description: "400-500 palabras", emoji: "👑", color: "from-yellow-400 to-amber-500" },
   ];
 
   const getBadgeEmoji = (badge: string) => {
@@ -229,28 +234,45 @@ export default function StudentDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {levels.map((levelInfo) => (
-                    <button
-                      key={levelInfo.level}
-                      onClick={() => setSelectedLevel(levelInfo.level)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all duration-200 ${
-                        selectedLevel === levelInfo.level
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="font-bold text-lg">
-                        Nivel {levelInfo.level}
-                      </div>
-                      <div className="text-sm font-medium text-blue-600">
-                        {levelInfo.name}
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {levelInfo.description}
-                      </div>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {levels.map((levelInfo) => {
+                    const isRecommended = adaptiveRec?.recommendedLevel === levelInfo.level;
+                    return (
+                      <button
+                        key={levelInfo.level}
+                        onClick={() => setSelectedLevel(levelInfo.level)}
+                        className={`relative p-3 rounded-xl text-center transition-all duration-200 transform hover:scale-105 ${
+                          selectedLevel === levelInfo.level
+                            ? 'ring-4 ring-blue-400 shadow-xl scale-105'
+                            : 'shadow-md hover:shadow-lg'
+                        }`}
+                      >
+                        {/* Background gradient */}
+                        <div className={`absolute inset-0 bg-gradient-to-br ${levelInfo.color} rounded-xl opacity-90`}></div>
+                        
+                        {/* Recommended badge */}
+                        {isRecommended && (
+                          <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow-md z-10">
+                            ⭐ Recomendado
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        <div className="relative z-10 text-white">
+                          <div className="text-3xl mb-1">{levelInfo.emoji}</div>
+                          <div className="font-bold text-sm mb-0.5">
+                            Nivel {levelInfo.level}
+                          </div>
+                          <div className="text-xs font-medium opacity-95">
+                            {levelInfo.name}
+                          </div>
+                          <div className="text-xs opacity-80 mt-1">
+                            {levelInfo.description}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
