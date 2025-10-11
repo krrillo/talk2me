@@ -1,0 +1,258 @@
+Perfecto. Aquí tienes una **instrucción técnica detallada** para tu asistente de IA (o equipo de desarrollo) sobre cómo **expandir el sistema de niveles a 10**, aumentar la **complejidad narrativa y lingüística**, ajustar el **sistema de progreso/puntuación**, y registrar las **historias jugadas y disponibles** para cada usuario, todo en coherencia con el backend IA y el frontend interactivo.
+
+---
+
+# 🧭 Fase 5 — Expansión de Niveles, Complejidad Adaptativa y Sistema de Progreso
+
+## 1) Objetivo general
+
+Instruir al motor de IA para:
+
+* Escalar el sistema de **niveles de aprendizaje** de 5 → **10 niveles**.
+* Generar historias más **largas, complejas y ricas lingüísticamente** según nivel.
+* Aumentar la **dificultad gramatical, semántica y ortográfica** en los juegos.
+* Actualizar los sistemas de **progreso, puntos y logros**.
+* Guardar y listar **historias jugadas** para cada usuario (revisión o repetición).
+
+---
+
+## 2) Nueva estructura de niveles
+
+| Nivel | Nombre          | Extensión      | Características gramaticales / lingüísticas                                | Objetivos de aprendizaje                                      |
+| :---- | :-------------- | :------------- | :------------------------------------------------------------------------- | :------------------------------------------------------------ |
+| 1     | Inicial         | 50–80 palabras | Oraciones simples (SVO), vocabulario concreto, sin conjugaciones complejas | Reconocer sujeto-verbo-objeto                                 |
+| 2     | Básico          | 80–100         | Adjetivos, artículos definidos/indefinidos, tiempos presentes simples      | Usar artículos y concordancia básica                          |
+| 3     | Intermedio      | 100–130        | Conectores simples (y, pero, porque), tiempos presente/pasado              | Construir ideas con conectores                                |
+| 4     | Avanzado        | 130–160        | Verbos irregulares comunes, plurales, concordancia de género               | Reforzar ortografía básica                                    |
+| 5     | Experto         | 150–200        | Subordinadas breves, pronombres, tiempos compuestos                        | Estructuras subordinadas básicas                              |
+| 6     | Intermedio Alto | 200–250        | Nexos complejos, tiempos perfectos, adverbios de modo y tiempo             | Coherencia narrativa temporal                                 |
+| 7     | Avanzado Alto   | 250–300        | Oraciones compuestas, uso de preposiciones precisas                        | Dominio de cohesión y conectores                              |
+| 8     | Profesional     | 300–350        | Modismos, metáforas simples, estilo descriptivo                            | Uso expresivo y creativo del lenguaje                         |
+| 9     | Literario       | 350–400        | Voz pasiva, discurso indirecto, variaciones de estilo                      | Análisis y redacción avanzada                                 |
+| 10    | Maestro         | 400–500+       | Subordinadas múltiples, tiempos mixtos, vocabulario abstracto              | Producción libre con estilo y corrección ortográfica completa |
+
+---
+
+## 3) Indicaciones para el sistema de IA (Strands / generador de historias)
+
+**Prompt base extendido:**
+
+```
+Eres un diseñador de actividades pedagógicas en español para niños y jóvenes con hipoacusia.
+
+Debes generar historias interactivas según el nivel solicitado (1–10).
+
+Cada nivel aumenta:
+- La longitud del texto (ver tabla).
+- La complejidad gramatical (artículos, tiempos verbales, conectores, subordinadas, modismos).
+- El vocabulario (de concreto a abstracto).
+- El desafío semántico (interpretación y sentido figurado).
+- La corrección ortográfica y uso de tildes.
+
+Incluye en la respuesta:
+{
+  "story": {
+    "level": <1-10>,
+    "title": "...",
+    "text": "...",
+    "wordCount": <int>,
+    "targets": ["vocabulario", "tiempo verbal", "estructura gramatical"],
+    "theme": "...",
+    "assets": [ ... ]
+  },
+  "gameSpec": {
+    "complexityIndex": <1-10>,
+    "gameType": "...",
+    "rules": "...",
+    "exercise": {
+      "type": "...",
+      "difficulty": <1-10>,
+      "focus": ["ortografía", "semántica", "gramática"]
+    }
+  }
+}
+```
+
+**Notas:**
+
+* La IA debe calibrar la *complejidad narrativa y lingüística* según el nivel.
+* A partir del nivel 6, incluir conectores complejos, pronombres relativos, y tiempos compuestos.
+* A partir del nivel 8, permitir metáforas, expresiones idiomáticas y variaciones de estilo.
+* Los juegos asociados deben reflejar esta progresión (ver sección siguiente).
+
+---
+
+## 4) Escalado de dificultad en juegos IA-driven
+
+| Nivel | Tipo de juego principal                               | Dificultad / Ejemplo           |
+| :---- | :---------------------------------------------------- | :----------------------------- |
+| 1–2   | Arrastra la palabra correcta / Une palabra-imagen     | Reconocer vocabulario básico   |
+| 3–4   | Ordena la oración                                     | Sintaxis simple                |
+| 5–6   | Completa con verbo correcto / Acentos                 | Gramática y ortografía         |
+| 7–8   | Corrige el error / reescribe                          | Gramática avanzada             |
+| 9–10  | Redacta una frase alternativa / elige el mejor estilo | Producción y revisión de texto |
+
+**Indicaciones para el flujo Strands `generate_story_with_game`:**
+
+* Añadir parámetro `difficultyScale: 1–10`.
+* Ajustar generación de juegos y feedback con esa escala.
+* Incorporar nuevos tipos de ejercicio (`rewrite_sentence`, `find_error`, `contextual_choice`).
+
+---
+
+## 5) Sistema de progreso y puntos
+
+**Objetivo:** motivar constancia y medir mejora gramatical.
+
+### Reglas
+
+* Al terminar una historia:
+
+  * +50 puntos por lectura completa.
+  * +20 puntos por cada ejercicio correcto.
+  * +10 puntos extra si completa sin errores.
+  * +Bonus de consistencia por sesiones consecutivas.
+
+**Modelo de datos (DynamoDB)**
+
+```json
+{
+  "userId": "usr_001",
+  "storyId": "sto_102",
+  "level": 7,
+  "pointsEarned": 120,
+  "accuracy": 0.85,
+  "timeSpent": 340,
+  "completedAt": "2025-10-12T15:43Z",
+  "progressSummary": {
+    "grammar": "improved",
+    "spelling": "needs_attention",
+    "semantics": "good"
+  }
+}
+```
+
+**Visualización en frontend:**
+
+* Barra de progreso por nivel.
+* Badges: “Explorador”, “Escritor”, “Narrador”, etc.
+* Ranking semanal (solo para modo parental opcional).
+
+---
+
+## 6) Registro y consulta de historias disponibles
+
+**Requerimientos funcionales:**
+
+1. Cada historia generada se almacena en `UserStories`:
+
+   * `userId + storyId` (PK)
+   * `status`: `completed|in-progress|available`
+   * `level`, `theme`, `timestamp`
+2. El usuario puede reabrir historias completadas en la sección “Mis historias”.
+3. Backend debe ofrecer:
+
+   * `GET /v1/stories/user/{userId}` → lista de historias con progreso.
+   * `GET /v1/stories/{storyId}` → contenido completo si pertenece al usuario.
+   * `PATCH /v1/progress` → actualiza estado (ej. “completed”).
+
+**Ejemplo JSON (frontend):**
+
+```json
+[
+  {
+    "storyId": "sto_203",
+    "title": "La ciudad de las palabras perdidas",
+    "level": 8,
+    "status": "completed",
+    "points": 160,
+    "accuracy": 0.92,
+    "playedAt": "2025-10-10"
+  },
+  {
+    "storyId": "sto_204",
+    "title": "El tren de las ideas",
+    "level": 9,
+    "status": "available"
+  }
+]
+```
+
+---
+
+## 7) Indicaciones al sistema Strands (backend IA)
+
+**Flow actualizado: `generate_story_with_game`**
+
+* Nuevo parámetro: `level` (1–10)
+* Incluir mapeo de complejidad → palabras y dificultad de juego
+* Generar campos:
+
+  * `complexityIndex`
+  * `gameSpec.difficulty`
+  * `targets[]`
+
+**Flow `evaluate_answer`**
+
+* Debe ponderar la puntuación según `level`.
+* Incluir feedback gramatical y semántico proporcional a la edad/nivel.
+* Registrar resultados en `Progress` table.
+
+**Flow `progress_post`**
+
+* Consolidar progreso acumulado (`totalPoints`, `storiesCompleted`, `averageAccuracy`).
+
+---
+
+## 8) Ejemplo de prompt adaptativo para IA generadora de historias
+
+```
+ROLE: Diseñador de historias educativas en español para jóvenes con hipoacusia.
+
+TASK: Generar una historia y un juego educativo adaptados al nivel {level}.
+A mayor nivel, más palabras, complejidad gramatical, riqueza semántica y corrección ortográfica.
+
+CONSTRAINTS:
+- Nivel {level} (1–10)
+- Palabras: {range según nivel}
+- Estructuras: {ver tabla de niveles}
+- Tema: {theme}
+- Juego: ajustado al nivel de complejidad (ej. ordenar, corregir, reescribir)
+OUTPUT: JSON con story + gameSpec + targets.
+```
+
+---
+
+## 9) Recomendaciones técnicas de implementación
+
+* **Frontend**:
+
+  * Añadir selector de nivel 1–10 con descripción dinámica.
+  * Mostrar progreso acumulado, puntos y badges.
+  * “Mis historias” → lista con filtros (nivel, tema, estado).
+
+* **Backend (Lambda/Agents)**:
+
+  * Validar `level` en 1–10.
+  * Actualizar tablas: `Stories`, `Progress`, `UserStories`.
+  * Ajustar límites diarios según plan Free/Premium.
+
+* **Base de datos**:
+
+  * Índices GSI: `userId-level`, `userId-status`.
+  * TTL opcional para historias inactivas.
+
+---
+
+## 10) Checklist de actualización
+
+* [ ] Ampliar tabla de niveles a 10 en configuración global.
+* [ ] Modificar prompt base y `StoryGenerateRequest` (añadir `level` 1–10).
+* [ ] Actualizar `GameSpec` con `difficulty` y `complexityIndex`.
+* [ ] Implementar registro de progreso y puntos acumulativos.
+* [ ] Crear endpoint `GET /v1/stories/user/{id}`.
+* [ ] Mostrar sección “Mis historias”.
+* [ ] Ajustar UI con descripciones de niveles.
+* [ ] Testear IA con variaciones de `level` 1–10 (sanity check: longitud y vocabulario).
+
+---
