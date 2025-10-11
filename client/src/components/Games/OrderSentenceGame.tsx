@@ -12,29 +12,73 @@ interface OrderSentenceGameProps {
   onComplete: (result: { correct: boolean; score: number }) => void;
 }
 
-interface DraggableWordProps {
+interface AvailableWordProps {
   word: string;
   index: number;
-  moveWord: (dragIndex: number, dropIndex: number) => void;
+  onMoveToSentence: (word: string, index: number) => void;
 }
 
-function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
+function AvailableWord({ word, index, onMoveToSentence }: AvailableWordProps) {
   const ref = useRef<HTMLDivElement>(null);
   
   const [{ isDragging }, drag] = useDrag({
-    type: "word",
-    item: () => ({ index }),
+    type: "available_word",
+    item: () => ({ word, index, source: "available" }),
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  drag(ref);
+
+  useEffect(() => {
+    if (ref.current) {
+      gsap.set(ref.current, {
+        scale: isDragging ? 1.1 : 1,
+        opacity: isDragging ? 0.5 : 1,
+      });
+    }
+  }, [isDragging]);
+
+  return (
+    <div
+      ref={ref}
+      onClick={() => onMoveToSentence(word, index)}
+      className={`
+        px-4 py-3 bg-gradient-to-r from-purple-400 to-pink-500 text-white
+        rounded-lg font-semibold cursor-pointer shadow-md border-2 border-white/20
+        hover:shadow-lg hover:scale-105 transition-all duration-200 text-center
+        ${isDragging ? 'opacity-50' : ''}
+      `}
+    >
+      {word}
+    </div>
+  );
+}
+
+interface SentenceWordProps {
+  word: string;
+  index: number;
+  onMoveToAvailable: (word: string, index: number) => void;
+  onReorder: (dragIndex: number, dropIndex: number) => void;
+}
+
+function SentenceWord({ word, index, onMoveToAvailable, onReorder }: SentenceWordProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  
+  const [{ isDragging }, drag] = useDrag({
+    type: "sentence_word",
+    item: () => ({ word, index, source: "sentence" }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   });
 
   const [, drop] = useDrop({
-    accept: "word",
-    hover: (item: { index: number }) => {
-      if (item.index !== index) {
-        console.log(`Moving word from ${item.index} to ${index}`);
-        moveWord(item.index, index);
+    accept: "sentence_word",
+    hover: (item: { index: number; source: string }) => {
+      if (item.source === "sentence" && item.index !== index) {
+        onReorder(item.index, index);
         item.index = index;
       }
     },
@@ -55,6 +99,7 @@ function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
   return (
     <div
       ref={ref}
+      onDoubleClick={() => onMoveToAvailable(word, index)}
       className={`
         px-4 py-3 bg-gradient-to-r from-green-400 to-blue-500 text-white
         rounded-lg font-semibold cursor-move shadow-md border-2 border-white/20
@@ -68,7 +113,8 @@ function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
 }
 
 function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
-  const [words, setWords] = useState<string[]>([]);
+  const [availableWords, setAvailableWords] = useState<string[]>([]);
+  const [sentenceWords, setSentenceWords] = useState<string[]>([]);
   const [attempts, setAttempts] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -77,24 +123,44 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
 
   useEffect(() => {
     if (spec.exercise?.payload?.words) {
-      // Shuffle the words for the initial state
+      // Shuffle the words and put them in the available area
       const shuffled = [...spec.exercise.payload.words].sort(() => Math.random() - 0.5);
-      setWords(shuffled);
+      setAvailableWords(shuffled);
+      setSentenceWords([]);
     }
   }, [spec]);
 
-  const moveWord = (dragIndex: number, dropIndex: number) => {
-    const dragWord = words[dragIndex];
-    const newWords = [...words];
+  const moveWordToSentence = (word: string, fromIndex: number) => {
+    // Remove from available, add to sentence
+    const newAvailable = availableWords.filter((_, i) => i !== fromIndex);
+    setAvailableWords(newAvailable);
+    setSentenceWords([...sentenceWords, word]);
+  };
+
+  const moveWordToAvailable = (word: string, fromIndex: number) => {
+    // Remove from sentence, add back to available
+    const newSentence = sentenceWords.filter((_, i) => i !== fromIndex);
+    setSentenceWords(newSentence);
+    setAvailableWords([...availableWords, word]);
+  };
+
+  const moveWithinSentence = (dragIndex: number, dropIndex: number) => {
+    const dragWord = sentenceWords[dragIndex];
+    const newWords = [...sentenceWords];
     newWords.splice(dragIndex, 1);
     newWords.splice(dropIndex, 0, dragWord);
-    setWords(newWords);
+    setSentenceWords(newWords);
   };
 
   const handleCheck = () => {
-    const currentAttempt = attempts; // Capturar el valor antes de incrementar
+    if (sentenceWords.length === 0) {
+      toast.warning("¡Arrastra palabras para formar la oración!");
+      return;
+    }
+    
+    const currentAttempt = attempts;
     setAttempts(prev => prev + 1);
-    const userSentence = words.join(' ');
+    const userSentence = sentenceWords.join(' ');
     const correctSentence = spec.exercise?.payload?.correct || '';
     const isCorrect = userSentence.toLowerCase() === correctSentence.toLowerCase();
     
@@ -156,8 +222,10 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
   };
 
   const handleShuffle = () => {
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
-    setWords(shuffled);
+    const allWords = [...availableWords, ...sentenceWords];
+    const shuffled = [...allWords].sort(() => Math.random() - 0.5);
+    setAvailableWords(shuffled);
+    setSentenceWords([]);
     
     if (gameRef.current) {
       gsap.fromTo(gameRef.current.querySelectorAll('.word-item'), 
@@ -167,7 +235,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
     }
   };
 
-  const getCurrentSentence = () => words.join(' ');
+  const getCurrentSentence = () => sentenceWords.join(' ');
 
   return (
     <div ref={gameRef} className="max-w-4xl mx-auto">
@@ -186,31 +254,64 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
               <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="green" />
             )}
 
-            {/* Current Sentence Preview */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3 text-center">Tu oración:</h3>
-              <div className="p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 min-h-[60px] flex items-center justify-center">
-                <p className="text-xl text-gray-700 font-medium text-center">
-                  {getCurrentSentence() || "Arrastra las palabras aquí..."}
-                </p>
+            {/* Palabras disponibles */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-4 text-center text-purple-600">
+                📦 Palabras disponibles (haz clic o arrastra):
+              </h3>
+              <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 min-h-[100px]">
+                <div className="flex flex-wrap justify-center gap-3">
+                  {availableWords.map((word, index) => (
+                    <div key={`available-${word}-${index}`} className="word-item">
+                      <AvailableWord
+                        word={word}
+                        index={index}
+                        onMoveToSentence={moveWordToSentence}
+                      />
+                    </div>
+                  ))}
+                  {availableWords.length === 0 && (
+                    <p className="text-purple-400 text-center">
+                      Todas las palabras están en uso
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Draggable Words */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold mb-4 text-center">
-                Palabras para ordenar:
+            {/* Zona de construcción de oración */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3 text-center text-green-600">
+                ✨ Tu oración (arrastra para reordenar, doble clic para quitar):
               </h3>
-              <div className="flex flex-wrap justify-center gap-3">
-                {words.map((word, index) => (
-                  <div key={`${word}-${index}`} className="word-item">
-                    <DraggableWord
-                      word={word}
-                      index={index}
-                      moveWord={moveWord}
-                    />
+              <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border-2 border-dashed border-green-300 min-h-[120px]">
+                {sentenceWords.length > 0 ? (
+                  <div className="flex flex-wrap justify-center gap-3 mb-4">
+                    {sentenceWords.map((word, index) => (
+                      <div key={`sentence-${word}-${index}`} className="word-item">
+                        <SentenceWord
+                          word={word}
+                          index={index}
+                          onMoveToAvailable={moveWordToAvailable}
+                          onReorder={moveWithinSentence}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="flex items-center justify-center h-20">
+                    <p className="text-gray-400 text-center">
+                      Haz clic en las palabras de arriba para construir tu oración
+                    </p>
+                  </div>
+                )}
+                {sentenceWords.length > 0 && (
+                  <div className="text-center mt-4 p-3 bg-white/50 rounded-lg">
+                    <p className="text-xl text-gray-800 font-medium">
+                      {getCurrentSentence()}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -228,7 +329,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
                 onClick={handleCheck}
                 variant="game"
                 size="lg"
-                disabled={words.length === 0 || showResult}
+                disabled={sentenceWords.length === 0 || showResult}
               >
                 Comprobar oración
               </Button>

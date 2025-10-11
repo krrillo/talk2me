@@ -43,14 +43,10 @@ export const EXERCISE_TEMPLATES: Record<string, string> = {
       "exercise": {{
         "type": "complete_words",
         "payload": {{
-          "text": "[Extract a passage from the story and replace 2-3 key words with ___ blanks. Words should test grammar focus for level {level}: {grammarFocus}]",
-          "blanks": [
-            {{"answer": "[first missing word]", "hint": "[subtle hint for first word]"}},
-            {{"answer": "[second missing word]", "hint": "[subtle hint for second word]"}},
-            {{"answer": "[third missing word if applicable]", "hint": "[subtle hint for third word]"}}
-          ],
-          "explanation": "[Explain the grammar rules being tested in this exercise]",
-          "hints": ["[General hint about grammar pattern]", "[Hint about context clues in the passage]"]
+          "sentence": "[Extract ONE sentence from the story and replace ONE key word with ___ (three underscores). Format example: 'El gato ___ muy rápido'. The missing word should test grammar focus for level {level}: {grammarFocus}]",
+          "correct": "[the single word that fills the blank - just the word, no punctuation]",
+          "explanation": "[Explain why this word is correct based on grammar rules for level {level}]",
+          "hints": ["[Subtle hint about grammar rule or word type]", "[More specific hint about context]"]
         }}
       }}
     }}`,
