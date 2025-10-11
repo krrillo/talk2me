@@ -15,14 +15,22 @@ router.get('/:gameId', requireAuth, async (req: AuthRequest, res) => {
       return res.status(404).json(createErrorResponse('Game not found'));
     }
 
+    // Transform to GameSpec format expected by frontend
     res.json(createSuccessResponse({
       id: exercise.id,
       storyId: exercise.storyId,
       gameType: exercise.gameType,
       level: exercise.level,
-      exerciseData: exercise.exerciseData,
-      correctAnswer: exercise.correctAnswer,
-      hints: exercise.hints,
+      title: `Ejercicio de ${exercise.gameType}`,
+      theme: 'learning',
+      exercise: {
+        type: exercise.gameType,
+        payload: {
+          ...(exercise.exerciseData || {}),
+          correct: exercise.exerciseData?.correct || exercise.correctAnswer || '',
+          hints: exercise.hints || [],
+        }
+      },
     }));
 
   } catch (error) {
