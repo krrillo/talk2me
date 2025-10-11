@@ -9,33 +9,25 @@ router.get('/:gameId', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { gameId } = req.params;
 
-    const exercise = await exerciseGeneratorService.getExerciseById(gameId);
+    const gameSpec = await exerciseGeneratorService.getExerciseById(gameId);
     
-    if (!exercise) {
+    if (!gameSpec) {
       return res.status(404).json(createErrorResponse('Game not found'));
     }
 
-    console.log('[Games API] Exercise from DB:', JSON.stringify(exercise, null, 2));
+    console.log('[Games API] GameSpec from service:', JSON.stringify(gameSpec, null, 2));
 
-    // Transform to GameSpec format expected by frontend
+    // The service already returns a complete GameSpec with exercise.payload structure
+    // We just need to ensure it's in the format the frontend expects
     const response = {
-      id: exercise.id,
-      storyId: exercise.storyId,
-      gameType: exercise.gameType,
-      level: exercise.level,
-      title: `Ejercicio de ${exercise.gameType}`,
-      theme: 'learning',
+      ...gameSpec,
       exercise: {
-        type: exercise.gameType,
-        payload: {
-          ...(exercise.exerciseData || {}),
-          correct: exercise.exerciseData?.correct || exercise.correctAnswer || '',
-          hints: exercise.hints || [],
-        }
-      },
+        type: gameSpec.gameType,
+        payload: gameSpec.exercise // This is already the payload data from exerciseData
+      }
     };
 
-    console.log('[Games API] Response payload:', JSON.stringify(response, null, 2));
+    console.log('[Games API] Response to frontend:', JSON.stringify(response, null, 2));
     
     res.json(createSuccessResponse(response));
 
