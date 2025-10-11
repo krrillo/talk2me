@@ -124,6 +124,24 @@ export class LangChainOrchestrator {
                 "hints": ["Pista sobre dónde buscar en la historia", "Pista más directa"]
               }}
             }}
+          }},
+          {{
+            "gameType": "free_writing",
+            "title": "Redacción libre",
+            "exercise": {{
+              "type": "free_writing",
+              "payload": {{
+                "prompt": "Pregunta abierta sobre la historia que requiera redacción (ej: ¿Qué aprendiste de esta historia? ¿Cómo te sentirías tú en esa situación?)",
+                "minLength": {minLength},
+                "maxLength": {maxLength},
+                "rubric": [
+                  "Ortografía correcta",
+                  "Concordancia de género y número",
+                  "Uso apropiado de verbos",
+                  "Coherencia y cohesión"
+                ]
+              }}
+            }}
           }}
         ]
       }}
@@ -134,6 +152,7 @@ export class LangChainOrchestrator {
 
     const grammarFocus = this.getGrammarFocusForLevel(request.level);
     const wordCount = this.getWordCountForLevel(request.level);
+    const { minLength, maxLength } = this.getWritingLengthForLevel(request.level);
 
     const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
 
@@ -143,6 +162,8 @@ export class LangChainOrchestrator {
         level: request.level,
         wordCount,
         grammarFocus,
+        minLength,
+        maxLength,
       });
 
       // Validate content safety
@@ -268,6 +289,23 @@ export class LangChainOrchestrator {
     };
     
     return ranges[level as keyof typeof ranges] || "50-80";
+  }
+
+  private getWritingLengthForLevel(level: number): { minLength: number; maxLength: number } {
+    const lengths = {
+      1: { minLength: 30, maxLength: 150 },
+      2: { minLength: 50, maxLength: 250 },
+      3: { minLength: 80, maxLength: 350 },
+      4: { minLength: 100, maxLength: 450 },
+      5: { minLength: 120, maxLength: 500 },
+      6: { minLength: 150, maxLength: 600 },
+      7: { minLength: 180, maxLength: 700 },
+      8: { minLength: 200, maxLength: 800 },
+      9: { minLength: 250, maxLength: 900 },
+      10: { minLength: 300, maxLength: 1000 },
+    };
+    
+    return lengths[level as keyof typeof lengths] || lengths[1];
   }
 
   async generateAdaptiveContent(userId: string, performanceHistory: any[]): Promise<{
