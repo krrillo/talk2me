@@ -86,11 +86,7 @@ export default function GameHost() {
       case "drag_words":
         return <DragWordsGame spec={currentGame} onComplete={handleGameComplete} />;
       case "order_sentence":
-        return (
-          <DndProvider backend={HTML5Backend}>
-            <OrderSentenceGame spec={currentGame} onComplete={handleGameComplete} />
-          </DndProvider>
-        );
+        return <OrderSentenceGame spec={currentGame} onComplete={handleGameComplete} />;
       case "complete_words":
         return <CompleteWordsGame spec={currentGame} onComplete={handleGameComplete} />;
       case "multi_choice":
@@ -109,28 +105,30 @@ export default function GameHost() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <div className="p-4 bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Button onClick={handleGoBack} variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver
-          </Button>
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-800">{currentGame.title}</h1>
-            <p className="text-sm text-gray-600">
-              Nivel {currentGame.level} • Juego {currentGameIndex + 1} de {gameIds.length}
-            </p>
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Header */}
+        <div className="p-4 bg-white/80 backdrop-blur-sm shadow-sm">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <Button onClick={handleGoBack} variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver
+            </Button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-gray-800">{currentGame.title}</h1>
+              <p className="text-sm text-gray-600">
+                Nivel {currentGame.level} • Juego {currentGameIndex + 1} de {gameIds.length}
+              </p>
+            </div>
+            <div className="w-20"></div> {/* Spacer for alignment */}
           </div>
-          <div className="w-20"></div> {/* Spacer for alignment */}
+        </div>
+
+        {/* Game Content */}
+        <div className="max-w-4xl mx-auto p-4">
+          {renderGame()}
         </div>
       </div>
-
-      {/* Game Content */}
-      <div className="max-w-4xl mx-auto p-4">
-        {renderGame()}
-      </div>
-    </div>
+    </DndProvider>
   );
 }

@@ -3,8 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { GameSpec } from "@/lib/types";
-import { useDrag, useDrop, DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
+import { useDrag, useDrop } from "react-dnd";
 import gsap from "gsap";
 import { StoryContext } from "./StoryContext";
 
@@ -234,96 +233,94 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div ref={gameRef} className="max-w-4xl mx-auto">
-        <Card className="overflow-hidden">
-          <CardContent className="p-8">
-            {/* Game Instructions */}
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2">Completa la oración</h2>
-              <p className="text-gray-600">
-                Arrastra la palabra correcta al espacio en blanco
-              </p>
+    <div ref={gameRef} className="max-w-4xl mx-auto">
+      <Card className="overflow-hidden">
+        <CardContent className="p-8">
+          {/* Game Instructions */}
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">Completa la oración</h2>
+            <p className="text-gray-600">
+              Arrastra la palabra correcta al espacio en blanco
+            </p>
+          </div>
+
+          {/* Story Context */}
+          {spec.story && (
+            <StoryContext story={spec.story} colorScheme="blue" />
+          )}
+
+          {/* Drop Zone */}
+          <div className="mb-8">
+            <DropZone 
+              onDrop={handleDrop}
+              droppedWord={droppedWord}
+              sentence={spec.exercise?.payload?.sentence || ""}
+            />
+          </div>
+
+          {/* Available Words */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-center">
+              Palabras disponibles:
+            </h3>
+            <div className="flex flex-wrap justify-center gap-4">
+              {availableWords.map((word, index) => (
+                <DraggableWord
+                  key={`${word}-${index}`}
+                  word={word}
+                  index={index}
+                  onDrop={handleDrop}
+                />
+              ))}
             </div>
+          </div>
 
-            {/* Story Context */}
-            {spec.story && (
-              <StoryContext story={spec.story} colorScheme="blue" />
-            )}
-
-            {/* Drop Zone */}
-            <div className="mb-8">
-              <DropZone 
-                onDrop={handleDrop}
-                droppedWord={droppedWord}
-                sentence={spec.exercise?.payload?.sentence || ""}
-              />
-            </div>
-
-            {/* Available Words */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold mb-4 text-center">
-                Palabras disponibles:
-              </h3>
-              <div className="flex flex-wrap justify-center gap-4">
-                {availableWords.map((word, index) => (
-                  <DraggableWord
-                    key={`${word}-${index}`}
-                    word={word}
-                    index={index}
-                    onDrop={handleDrop}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Feedback Card */}
-            {showFeedback && feedbackMessage && (
-              <div className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl animate-pulse">
-                <div className="flex items-start gap-4">
-                  <div className="text-4xl">
-                    {attempts === 0 ? "💡" : attempts === 1 ? "🤔" : "✨"}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">
-                      {attempts === 0 ? "Pista" : attempts === 1 ? "Otra pista" : "Explicación"}
-                    </h3>
-                    <p className="text-gray-800 text-base leading-relaxed whitespace-pre-line">
-                      {feedbackMessage}
-                    </p>
-                  </div>
+          {/* Feedback Card */}
+          {showFeedback && feedbackMessage && (
+            <div className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl animate-pulse">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">
+                  {attempts === 0 ? "💡" : attempts === 1 ? "🤔" : "✨"}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {attempts === 0 ? "Pista" : attempts === 1 ? "Otra pista" : "Explicación"}
+                  </h3>
+                  <p className="text-gray-800 text-base leading-relaxed whitespace-pre-line">
+                    {feedbackMessage}
+                  </p>
                 </div>
               </div>
-            )}
-
-            {/* Controls */}
-            <div className="flex justify-center gap-4">
-              <Button
-                onClick={handleReset}
-                variant="outline"
-                size="lg"
-                disabled={!droppedWord || showResult}
-              >
-                Reiniciar
-              </Button>
-              <Button
-                onClick={handleCheck}
-                variant="game"
-                size="lg"
-                disabled={!droppedWord || showResult || showFeedback}
-              >
-                Comprobar respuesta
-              </Button>
             </div>
+          )}
 
-            {/* Attempts Counter */}
-            <div className="mt-4 text-center text-sm text-gray-500">
-              Intento: {attempts + 1}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </DndProvider>
+          {/* Controls */}
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={handleReset}
+              variant="outline"
+              size="lg"
+              disabled={!droppedWord || showResult}
+            >
+              Reiniciar
+            </Button>
+            <Button
+              onClick={handleCheck}
+              variant="game"
+              size="lg"
+              disabled={!droppedWord || showResult || showFeedback}
+            >
+              Comprobar respuesta
+            </Button>
+          </div>
+
+          {/* Attempts Counter */}
+          <div className="mt-4 text-center text-sm text-gray-500">
+            Intento: {attempts + 1}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
