@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 
 interface StoryContextProps {
   story: string;
-  colorScheme?: "blue" | "green" | "purple" | "indigo";
+  colorScheme?: "blue" | "green" | "purple" | "indigo" | "orange";
 }
 
 const COLOR_SCHEMES = {
@@ -27,6 +27,11 @@ const COLOR_SCHEMES = {
     bg: "bg-indigo-50",
     border: "border-indigo-400",
     button: "text-indigo-600 hover:text-indigo-700",
+  },
+  orange: {
+    bg: "bg-orange-50",
+    border: "border-orange-400",
+    button: "text-orange-600 hover:text-orange-700",
   },
 };
 

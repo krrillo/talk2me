@@ -39,7 +39,7 @@ export interface GameSpec {
   title: string;
   level: number;
   theme: string;
-  gameType: "drag_words" | "order_sentence" | "complete_words" | "multi_choice";
+  gameType: "drag_words" | "order_sentence" | "complete_words" | "multi_choice" | "free_writing";
   story?: string;
   exercise: {
     type: string;
@@ -53,6 +53,10 @@ export interface GameSpec {
       correctIndex?: number;
       explanation?: string;
       hints?: string[];
+      prompt?: string;
+      minLength?: number;
+      maxLength?: number;
+      rubric?: string[];
     };
   };
   uiHints?: {

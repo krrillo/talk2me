@@ -7,6 +7,7 @@ import DragWordsGame from "./DragWordsGame";
 import OrderSentenceGame from "./OrderSentenceGame";
 import CompleteWordsGame from "./CompleteWordsGame";
 import MultipleChoiceGame from "./MultipleChoiceGame";
+import FreeWritingGame from "./FreeWritingGame";
 import { useGameSpec } from "@/hooks/useGameSpec";
 import { GameSpec } from "@/lib/types";
 
@@ -88,6 +89,8 @@ export default function GameHost() {
         return <CompleteWordsGame spec={currentGame} onComplete={handleGameComplete} />;
       case "multi_choice":
         return <MultipleChoiceGame spec={currentGame} onComplete={handleGameComplete} />;
+      case "free_writing":
+        return <FreeWritingGame spec={currentGame} onComplete={handleGameComplete} />;
       default:
         return (
           <div className="text-center py-12">
