@@ -169,21 +169,24 @@ export class MultimodalLearningWorkflow {
     console.log(`[Workflow] Saving ${state.exercises.length} exercises for story ${storyId}`);
 
     const exercisePromises = state.exercises.map(async (exercise: any) => {
+      // GPT-5 generates exercises in this format: { gameType, exercise: { payload: {...} } }
+      const payload = exercise.exercise?.payload || exercise.payload || {};
+      
       return await db.insert(exercises).values({
         storyId: storyId,
         gameType: exercise.gameType || exercise.type || "multiple_choice",
         level: state.level,
         exerciseData: {
-          question: exercise.question || exercise.exercise?.payload?.question || exercise.payload?.question,
-          options: exercise.options || exercise.exercise?.payload?.options || exercise.payload?.options || [],
-          words: exercise.words || exercise.exercise?.payload?.words || exercise.payload?.words || [],
-          sentence: exercise.sentence || exercise.exercise?.payload?.sentence || exercise.payload?.sentence || "",
-          choices: exercise.exercise?.payload?.choices || exercise.payload?.choices || [],
-          correctIndex: exercise.exercise?.payload?.correctIndex ?? exercise.payload?.correctIndex,
-          correct: exercise.exercise?.payload?.correct || exercise.payload?.correct || "",
+          question: payload.question || "",
+          options: payload.options || [],
+          words: payload.words || [],
+          sentence: payload.sentence || "",
+          choices: payload.choices || [],
+          correctIndex: payload.correctIndex ?? undefined,
+          correct: payload.correct || "",
         },
-        correctAnswer: exercise.correctAnswer || exercise.exercise?.payload?.correct || exercise.payload?.correct || "",
-        hints: exercise.hints || exercise.exercise?.payload?.hints || exercise.payload?.hints || [],
+        correctAnswer: payload.correct || "",
+        hints: payload.hints || exercise.hints || [],
         aiMetadata: {
           generatedBy: "gpt-4",
           generatedAt: new Date().toISOString(),
