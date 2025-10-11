@@ -84,17 +84,11 @@ export function VocabularyPreview({ vocabulary, onContinue }: VocabularyPreviewP
         >
           <CardContent className="p-0">
             <div className="grid md:grid-cols-2 gap-0">
-              {/* Image Section */}
+              {/* Emoji Section */}
               <div className="bg-gradient-to-br from-blue-100 to-purple-100 p-8 flex items-center justify-center min-h-[300px]">
-                {currentWord.imageUrl ? (
-                  <img
-                    src={currentWord.imageUrl}
-                    alt={currentWord.word}
-                    className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg"
-                  />
-                ) : (
-                  <div className="text-9xl">📖</div>
-                )}
+                <div className="text-[200px] leading-none" role="img" aria-label={currentWord.word}>
+                  {currentWord.emoji || "📖"}
+                </div>
               </div>
 
               {/* Text Section */}

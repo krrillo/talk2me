@@ -62,7 +62,7 @@ export class LangChainOrchestrator {
       - Prioritize words that appear multiple times or are central to the story
       - Provide simple, child-friendly definitions (max 10 words)
       - Create example sentences that differ from the story but use the same word
-      - Generate clear, concrete imagePrompts for each word (objects, actions, emotions)
+      - Choose ONE appropriate emoji that visually represents each word (objects: 🐕🌸🏠, actions: 🏃💤🎨, emotions: 😊😢❤️)
 
       IMPORTANT: Return ONLY valid JSON in this exact format:
 
@@ -79,7 +79,7 @@ export class LangChainOrchestrator {
               "word": "palabra clave",
               "definition": "Definición simple para niños",
               "example": "Frase de ejemplo usando la palabra",
-              "imagePrompt": "DALL-E prompt for simple illustration of the word"
+              "emoji": "🌟"
             }}
           ],
           "theme": "{theme}",

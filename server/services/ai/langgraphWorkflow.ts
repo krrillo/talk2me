@@ -112,56 +112,34 @@ export class MultimodalLearningWorkflow {
   }
 
   private async generateImagesParallel(state: WorkflowState): Promise<string[]> {
-    const allImagePromises: Promise<string>[] = [];
-    
-    // Generate story page images
-    if (state.storyPages && state.storyPages.length > 0) {
-      console.log(`[Workflow] Generating ${state.storyPages.length} story page images in parallel`);
-      const pageImagePromises = state.storyPages.map(async (page: any, index: number) => {
-        const imagePrompt = `Illustration for children's Spanish learning story: ${page.text}. Scene ${index + 1}`;
-        return await this.orchestrator.generateImage(imagePrompt, "flat-illustration");
-      });
-      allImagePromises.push(...pageImagePromises);
-    }
-    
-    // Generate vocabulary images
-    const vocabulary = state.storyContent?.vocabulary || [];
-    if (vocabulary.length > 0) {
-      console.log(`[Workflow] Generating ${vocabulary.length} vocabulary images in parallel`);
-      const vocabImagePromises = vocabulary.map(async (vocabItem: any) => {
-        if (vocabItem.imagePrompt) {
-          return await this.orchestrator.generateImage(vocabItem.imagePrompt, "simple-object-illustration");
-        }
-        return "";
-      });
-      allImagePromises.push(...vocabImagePromises);
+    // Generate ONLY 1 main cover image for the story (optimization: 8 images -> 1 image)
+    if (!state.storyPages || state.storyPages.length === 0) {
+      console.log("[Workflow] No pages to generate images for");
+      return [];
     }
 
-    const allImageUrls = await Promise.all(allImagePromises);
+    console.log(`[Workflow] Generating 1 main cover image (optimized from ${state.storyPages.length} page images)`);
     
-    // Split results: first are page images, rest are vocabulary images
-    const pageImageCount = state.storyPages?.length || 0;
-    const pageImageUrls = allImageUrls.slice(0, pageImageCount);
-    const vocabImageUrls = allImageUrls.slice(pageImageCount);
+    // Create a combined prompt from all pages for one comprehensive illustration
+    const storyText = state.storyPages.map((p: any) => p.text).join(' ');
+    const coverPrompt = `Cover illustration for children's Spanish learning story: ${storyText.substring(0, 200)}...`;
     
-    // Update story pages with image URLs
+    const coverImageUrl = await this.orchestrator.generateImage(coverPrompt, "flat-illustration");
+    
+    // Apply the same cover image to all pages
     if (state.storyPages) {
-      state.storyPages = state.storyPages.map((page: any, index: number) => ({
+      state.storyPages = state.storyPages.map((page: any) => ({
         ...page,
-        imageUrl: pageImageUrls[index] || "",
+        imageUrl: coverImageUrl || "",
       }));
     }
     
-    // Update vocabulary with image URLs
-    if (state.storyContent && vocabulary.length > 0) {
-      state.storyContent.vocabulary = vocabulary.map((vocabItem: any, index: number) => ({
-        ...vocabItem,
-        imageUrl: vocabImageUrls[index] || "",
-      }));
-    }
+    // Vocabulary now uses emojis (no image generation needed)
+    console.log(`[Workflow] Vocabulary uses emojis (no image generation)`);
 
-    console.log(`[Workflow] Generated ${allImageUrls.filter(url => url).length} images successfully (${pageImageUrls.filter(url => url).length} pages + ${vocabImageUrls.filter(url => url).length} vocabulary)`);
-    return allImageUrls.filter(url => url);
+    const successCount = coverImageUrl ? 1 : 0;
+    console.log(`[Workflow] Generated ${successCount} image successfully (cover only, vocabulary uses emojis)`);
+    return coverImageUrl ? [coverImageUrl] : [];
   }
 
   private async saveStoryToDb(state: WorkflowState): Promise<string> {

@@ -28,6 +28,7 @@ export interface VocabularyItem {
   word: string;
   definition: string;
   example: string;
+  emoji?: string;
   imageUrl?: string;
   imagePrompt?: string;
 }
