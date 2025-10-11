@@ -206,7 +206,7 @@ export default function StudentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-2">
-                    {progress.badges.map((badge, index) => (
+                    {progress.badges.map((badge: string, index: number) => (
                       <div
                         key={index}
                         className="text-center p-2 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg"
