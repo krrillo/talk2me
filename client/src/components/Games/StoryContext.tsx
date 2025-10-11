@@ -1,99 +1,110 @@
-import { useState } from "react";
-import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { getAuthHeaders } from "@/lib/auth";
 
 interface StoryContextProps {
   story: string;
+  storyId?: string;
   colorScheme?: "blue" | "green" | "purple" | "indigo" | "orange";
 }
 
 const COLOR_SCHEMES = {
   blue: {
-    page: "from-blue-50 to-blue-100",
-    pageText: "text-gray-800",
-    accent: "bg-blue-500",
-    accentHover: "hover:bg-blue-600",
+    bg: "from-blue-400/20 to-cyan-400/20",
+    border: "border-blue-400",
+    button: "bg-blue-500 hover:bg-blue-600",
+    dot: "bg-blue-500",
   },
   green: {
-    page: "from-green-50 to-green-100",
-    pageText: "text-gray-800",
-    accent: "bg-green-500",
-    accentHover: "hover:bg-green-600",
+    bg: "from-green-400/20 to-emerald-400/20",
+    border: "border-green-400",
+    button: "bg-green-500 hover:bg-green-600",
+    dot: "bg-green-500",
   },
   purple: {
-    page: "from-purple-50 to-purple-100",
-    pageText: "text-gray-800",
-    accent: "bg-purple-500",
-    accentHover: "hover:bg-purple-600",
+    bg: "from-purple-400/20 to-pink-400/20",
+    border: "border-purple-400",
+    button: "bg-purple-500 hover:bg-purple-600",
+    dot: "bg-purple-500",
   },
   indigo: {
-    page: "from-indigo-50 to-indigo-100",
-    pageText: "text-gray-800",
-    accent: "bg-indigo-500",
-    accentHover: "hover:bg-indigo-600",
+    bg: "from-indigo-400/20 to-blue-400/20",
+    border: "border-indigo-400",
+    button: "bg-indigo-500 hover:bg-indigo-600",
+    dot: "bg-indigo-500",
   },
   orange: {
-    page: "from-orange-50 to-orange-100",
-    pageText: "text-gray-800",
-    accent: "bg-orange-500",
-    accentHover: "hover:bg-orange-600",
+    bg: "from-orange-400/20 to-yellow-400/20",
+    border: "border-orange-400",
+    button: "bg-orange-500 hover:bg-orange-600",
+    dot: "bg-orange-500",
   },
 };
 
-export function StoryContext({ story, colorScheme = "blue" }: StoryContextProps) {
+export function StoryContext({ story, storyId, colorScheme = "blue" }: StoryContextProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [storyImage, setStoryImage] = useState<string | null>(null);
   
   const colors = COLOR_SCHEMES[colorScheme];
 
-  // Split text into pages (sentences-based) - ensures all text is shown
+  // Fetch story image if storyId is provided
+  useEffect(() => {
+    // Reset image when storyId changes
+    setStoryImage(null);
+    
+    if (storyId) {
+      fetch(`/api/stories/${storyId}`, {
+        headers: getAuthHeaders()
+      })
+        .then(res => {
+          if (!res.ok) {
+            console.error('Failed to fetch story:', res.status);
+            return null;
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data?.success && data.data?.pages?.[0]?.imageUrl) {
+            setStoryImage(data.data.pages[0].imageUrl);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching story image:', err);
+          setStoryImage(null);
+        });
+    }
+  }, [storyId]);
+
+  // Split text into pages for flipbook
   const splitTextIntoPages = (text: string) => {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const pages: string[][] = [];
+    const pages: string[] = [];
     
-    let i = 0;
-    while (i < sentences.length) {
-      const leftSentences = [];
-      const rightSentences = [];
-      
-      // Take 1-2 sentences for left page
-      if (i < sentences.length) {
-        leftSentences.push(sentences[i]);
-        i++;
+    let currentPageText = "";
+    for (const sentence of sentences) {
+      if (currentPageText.length + sentence.length > 250) {
+        if (currentPageText) pages.push(currentPageText.trim());
+        currentPageText = sentence;
+      } else {
+        currentPageText += sentence;
       }
-      if (i < sentences.length && leftSentences.join(' ').length < 200) {
-        leftSentences.push(sentences[i]);
-        i++;
-      }
-      
-      // Take 1-2 sentences for right page
-      if (i < sentences.length) {
-        rightSentences.push(sentences[i]);
-        i++;
-      }
-      if (i < sentences.length && rightSentences.join(' ').length < 200) {
-        rightSentences.push(sentences[i]);
-        i++;
-      }
-      
-      pages.push([
-        leftSentences.join(' '),
-        rightSentences.join(' ')
-      ]);
     }
+    if (currentPageText) pages.push(currentPageText.trim());
     
-    return pages;
+    return pages.length > 0 ? pages : [text];
   };
 
   const pages = splitTextIntoPages(story);
-  const totalPagePairs = pages.length;
+  const totalPages = pages.length;
 
   const handleNextPage = () => {
-    if (currentPage < totalPagePairs - 1 && !isFlipping) {
+    if (currentPage < totalPages - 1 && !isFlipping) {
       setIsFlipping(true);
       setTimeout(() => {
         setCurrentPage(prev => prev + 1);
-        setIsFlipping(false);
-      }, 600);
+        setTimeout(() => setIsFlipping(false), 600);
+      }, 100);
     }
   };
 
@@ -102,223 +113,157 @@ export function StoryContext({ story, colorScheme = "blue" }: StoryContextProps)
       setIsFlipping(true);
       setTimeout(() => {
         setCurrentPage(prev => prev - 1);
-        setIsFlipping(false);
-      }, 600);
+        setTimeout(() => setIsFlipping(false), 600);
+      }, 100);
     }
   };
 
-  const [leftPageText, rightPageText] = pages[currentPage] || ["", ""];
-
   return (
     <div className="mb-8 relative">
-      {/* Book Container with 3D Perspective */}
-      <div 
-        className="relative"
-        style={{
-          perspective: "2000px",
-          perspectiveOrigin: "center",
-        }}
-      >
-        {/* Open Book */}
-        <div className="relative flex flex-col md:flex-row items-center justify-center gap-4 md:gap-0">
-          {/* Book Spine/Center Shadow - Hidden on mobile */}
+      {/* Flipbook Container */}
+      <div className="relative mx-auto max-w-2xl">
+        {/* Page */}
+        <div 
+          className={`
+            relative overflow-hidden rounded-3xl 
+            border-4 ${colors.border} 
+            shadow-2xl
+            transition-all duration-500
+            ${isFlipping ? 'animate-flip' : ''}
+          `}
+          style={{
+            background: storyImage 
+              ? `linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.92) 100%), url(${storyImage})`
+              : 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            minHeight: '320px',
+          }}
+        >
+          {/* Decorative overlay pattern */}
           <div 
-            className="hidden md:block absolute top-0 bottom-0 left-1/2 w-6 -ml-3 z-10"
+            className="absolute inset-0 opacity-[0.03]"
             style={{
-              background: "linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)",
-              boxShadow: "inset 0 0 20px rgba(0,0,0,0.3)",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
             }}
           />
 
-          {/* Left Page */}
-          <div 
-            className={`page-left relative w-full md:w-1/2 transition-all duration-600 ease-out ${isFlipping ? 'animate-page-flip-left' : ''}`}
-            data-page="left"
-          >
-            <div 
-              className={`relative bg-gradient-to-br ${colors.page} rounded-2xl md:rounded-l-2xl md:rounded-r-none p-8 min-h-[280px]`}
-              style={{
-                boxShadow: `
-                  -8px 0 20px rgba(0,0,0,0.15),
-                  inset 4px 0 8px rgba(0,0,0,0.05),
-                  inset -2px 0 4px rgba(255,255,255,0.5)
-                `,
-                borderRight: "1px solid rgba(139, 69, 19, 0.2)",
-              }}
-            >
-              {/* Paper texture overlay */}
-              <div 
-                className="absolute inset-0 opacity-5 rounded-l-2xl pointer-events-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}
-              />
-              
-              {/* Header */}
-              <div className="relative z-10 flex items-center gap-2 mb-4 pb-3 border-b-2 border-amber-300/30">
-                <BookOpen className="w-5 h-5 text-amber-700" />
-                <h3 className="text-sm font-bold text-amber-900 tracking-wide uppercase">
+          {/* Gradient overlay for better text visibility */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${colors.bg}`} />
+
+          {/* Page content */}
+          <div className="relative z-10 p-8 md:p-12">
+            {/* Header with sparkles */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-yellow-500" />
+                <h3 className="text-lg font-bold text-gray-800 uppercase tracking-wider">
                   Historia
                 </h3>
               </div>
-              
-              {/* Left Page Content */}
-              <div className="relative z-10">
-                <p className={`${colors.pageText} text-base leading-relaxed font-medium whitespace-pre-wrap`}>
-                  {leftPageText}
-                </p>
-              </div>
-
-              {/* Page number */}
-              <div className="absolute bottom-4 left-8 text-xs text-gray-500 font-semibold">
-                {currentPage * 2 + 1}
+              <div className="text-sm font-semibold text-gray-500">
+                Página {currentPage + 1} de {totalPages}
               </div>
             </div>
+
+            {/* Story text */}
+            <div className="prose prose-lg max-w-none">
+              <p className="text-gray-800 text-lg md:text-xl leading-relaxed font-medium whitespace-pre-wrap">
+                {pages[currentPage]}
+              </p>
+            </div>
+
+            {/* Decorative corner elements */}
+            <div className="absolute top-4 right-4 text-3xl opacity-20">⭐</div>
+            <div className="absolute bottom-4 left-4 text-3xl opacity-20">✨</div>
           </div>
 
-          {/* Right Page */}
+          {/* Page curl effect (bottom-right corner) */}
           <div 
-            className={`page-right relative w-full md:w-1/2 transition-all duration-600 ease-out ${isFlipping ? 'animate-page-flip-right' : ''}`}
-            data-page="right"
-          >
-            <div 
-              className={`relative bg-gradient-to-bl ${colors.page} rounded-2xl md:rounded-r-2xl md:rounded-l-none p-8 min-h-[280px]`}
-              style={{
-                boxShadow: `
-                  8px 0 20px rgba(0,0,0,0.15),
-                  inset -4px 0 8px rgba(0,0,0,0.05),
-                  inset 2px 0 4px rgba(255,255,255,0.5)
-                `,
-                borderLeft: "1px solid rgba(139, 69, 19, 0.2)",
-              }}
-            >
-              {/* Paper texture overlay */}
-              <div 
-                className="absolute inset-0 opacity-5 rounded-r-2xl pointer-events-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}
-              />
-              
-              {/* Right Page Content */}
-              <div className="relative z-10 pt-14">
-                <p className={`${colors.pageText} text-base leading-relaxed font-medium whitespace-pre-wrap`}>
-                  {rightPageText}
-                </p>
-              </div>
-
-              {/* Page number */}
-              <div className="absolute bottom-4 right-8 text-xs text-gray-500 font-semibold">
-                {currentPage * 2 + 2}
-              </div>
-            </div>
-          </div>
+            className="absolute bottom-0 right-0 w-16 h-16 opacity-20"
+            style={{
+              background: 'linear-gradient(225deg, transparent 50%, rgba(0,0,0,0.1) 50%)',
+              borderRadius: '0 0 1.5rem 0',
+            }}
+          />
         </div>
 
         {/* Navigation Buttons */}
-        {totalPagePairs > 1 && (
-          <>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 mt-6">
             {/* Previous Button */}
-            {currentPage > 0 && (
-              <button
-                onClick={handlePrevPage}
-                disabled={isFlipping}
-                className={`absolute left-2 md:left-0 top-1/2 md:-translate-x-12 -translate-y-1/2 ${colors.accent} ${colors.accentHover} text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed z-20`}
-                aria-label="Página anterior"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 0 || isFlipping}
+              className={`
+                ${colors.button} text-white p-4 rounded-full shadow-lg
+                transition-all duration-300 hover:scale-110 active:scale-95
+                disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100
+              `}
+              aria-label="Página anterior"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
 
-            {/* Next Button */}
-            {currentPage < totalPagePairs - 1 && (
-              <button
-                onClick={handleNextPage}
-                disabled={isFlipping}
-                className={`absolute right-2 md:right-0 top-1/2 md:translate-x-12 -translate-y-1/2 ${colors.accent} ${colors.accentHover} text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed z-20`}
-                aria-label="Página siguiente"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
-          </>
-        )}
-
-        {/* Page indicator */}
-        {totalPagePairs > 1 && (
-          <div className="mt-4 text-center">
-            <div className="inline-flex gap-2 bg-white/70 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm">
-              {Array.from({ length: totalPagePairs }).map((_, i) => (
+            {/* Page Dots */}
+            <div className="flex gap-2">
+              {Array.from({ length: totalPages }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => {
-                    if (!isFlipping) {
+                    if (!isFlipping && i !== currentPage) {
                       setIsFlipping(true);
                       setTimeout(() => {
                         setCurrentPage(i);
-                        setIsFlipping(false);
-                      }, 600);
+                        setTimeout(() => setIsFlipping(false), 600);
+                      }, 100);
                     }
                   }}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    i === currentPage 
-                      ? `${colors.accent} scale-125` 
+                  className={`
+                    w-3 h-3 rounded-full transition-all duration-300
+                    ${i === currentPage 
+                      ? `${colors.dot} scale-125` 
                       : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
+                    }
+                  `}
                   aria-label={`Ir a página ${i + 1}`}
                 />
               ))}
             </div>
+
+            {/* Next Button */}
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages - 1 || isFlipping}
+              className={`
+                ${colors.button} text-white p-4 rounded-full shadow-lg
+                transition-all duration-300 hover:scale-110 active:scale-95
+                disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100
+              `}
+              aria-label="Página siguiente"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
           </div>
         )}
       </div>
 
       <style>{`
-        /* 3D effects only on desktop */
-        @media (min-width: 768px) {
-          .page-left {
-            transform-style: preserve-3d;
-            transform: rotateY(5deg);
-            transform-origin: right center;
+        @keyframes flip {
+          0% {
+            transform: perspective(1000px) rotateY(0deg);
           }
+          50% {
+            transform: perspective(1000px) rotateY(90deg);
+            opacity: 0.5;
+          }
+          100% {
+            transform: perspective(1000px) rotateY(0deg);
+          }
+        }
 
-          .page-right {
-            transform-style: preserve-3d;
-            transform: rotateY(-5deg);
-            transform-origin: left center;
-          }
-
-          @keyframes pageFlipLeft {
-            0% {
-              transform: rotateY(5deg);
-            }
-            50% {
-              transform: rotateY(-10deg);
-            }
-            100% {
-              transform: rotateY(5deg);
-            }
-          }
-
-          @keyframes pageFlipRight {
-            0% {
-              transform: rotateY(-5deg);
-            }
-            50% {
-              transform: rotateY(10deg);
-            }
-            100% {
-              transform: rotateY(-5deg);
-            }
-          }
-
-          .animate-page-flip-left {
-            animation: pageFlipLeft 0.6s ease-in-out;
-          }
-
-          .animate-page-flip-right {
-            animation: pageFlipRight 0.6s ease-in-out;
-          }
+        .animate-flip {
+          animation: flip 0.6s ease-in-out;
         }
       `}</style>
     </div>

@@ -147,7 +147,7 @@ function CompleteWordsGame({ spec, onComplete }: CompleteWordsGameProps) {
 
           {/* Story Context */}
           {spec.story && (
-            <StoryContext story={spec.story} colorScheme="purple" />
+            <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="purple" />
           )}
 
           {/* Sentence with blank */}

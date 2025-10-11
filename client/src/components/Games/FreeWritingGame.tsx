@@ -211,7 +211,7 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
           </div>
 
           {spec.story && (
-            <StoryContext story={spec.story} colorScheme="orange" />
+            <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="orange" />
           )}
 
           <div className="mb-6">

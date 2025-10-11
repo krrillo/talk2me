@@ -246,7 +246,7 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
 
           {/* Story Context */}
           {spec.story && (
-            <StoryContext story={spec.story} colorScheme="blue" />
+            <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="blue" />
           )}
 
           {/* Drop Zone */}

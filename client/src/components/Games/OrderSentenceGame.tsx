@@ -27,17 +27,18 @@ function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+  }), [index]);
 
   const [, drop] = useDrop(() => ({
     accept: "word",
     hover: (item: { index: number }) => {
       if (item.index !== index) {
+        console.log(`Moving word from ${item.index} to ${index}`);
         moveWord(item.index, index);
         item.index = index;
       }
     },
-  }));
+  }), [index, moveWord]);
 
   drag(drop(ref));
 
@@ -182,7 +183,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
 
             {/* Story Context */}
             {spec.story && (
-              <StoryContext story={spec.story} colorScheme="green" />
+              <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="green" />
             )}
 
             {/* Current Sentence Preview */}

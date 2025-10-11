@@ -209,7 +209,7 @@ function MultipleChoiceGame({ spec, onComplete }: MultipleChoiceGameProps) {
 
           {/* Story Context */}
           {spec.story && (
-            <StoryContext story={spec.story} colorScheme="indigo" />
+            <StoryContext story={spec.story} storyId={spec.storyId} colorScheme="indigo" />
           )}
 
           {/* Question */}
