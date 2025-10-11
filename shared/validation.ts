@@ -11,7 +11,7 @@ export const CreateStoryRequestSchema = StoryGenerateRequestSchema;
 export const CreateExerciseRequestSchema = z.object({
   storyId: z.string().uuid(),
   gameType: z.enum(["drag_words", "order_sentence", "complete_words", "multi_choice"]),
-  level: z.number().min(1).max(5),
+  level: z.number().min(1).max(10),
   customPrompts: z.array(z.string()).optional(),
 });
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 // Story generation request/response types
 export const StoryGenerateRequestSchema = z.object({
   theme: z.string().min(1),
-  level: z.number().min(1).max(5),
+  level: z.number().min(1).max(10),
   locale: z.string().default("es-ES"),
   constraints: z.object({
     maxWords: z.number().optional(),
