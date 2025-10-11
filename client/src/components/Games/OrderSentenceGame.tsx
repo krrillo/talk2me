@@ -21,15 +21,15 @@ interface DraggableWordProps {
 function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
   const ref = useRef<HTMLDivElement>(null);
   
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const [{ isDragging }, drag] = useDrag({
     type: "word",
-    item: { index },
+    item: () => ({ index }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [index]);
+  });
 
-  const [, drop] = useDrop(() => ({
+  const [, drop] = useDrop({
     accept: "word",
     hover: (item: { index: number }) => {
       if (item.index !== index) {
@@ -38,7 +38,7 @@ function DraggableWord({ word, index, moveWord }: DraggableWordProps) {
         item.index = index;
       }
     },
-  }), [index, moveWord]);
+  });
 
   drag(drop(ref));
 
