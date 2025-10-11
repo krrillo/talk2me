@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getAuthHeaders } from "@/lib/auth";
 
 interface EvaluateAnswerRequest {
   exerciseId: string;
@@ -26,7 +27,7 @@ export function useEvaluateAnswer() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(request),
       });
@@ -57,9 +58,7 @@ export function useExercisePerformance(exerciseId: string) {
     queryKey: ['exercise-performance', exerciseId],
     queryFn: async () => {
       const response = await fetch(`/api/evaluation/exercise/${exerciseId}/performance`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -78,9 +77,7 @@ export function useUserAnalysis(userId: string) {
     queryKey: ['user-analysis', userId],
     queryFn: async () => {
       const response = await fetch(`/api/evaluation/user/${userId}/analysis`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

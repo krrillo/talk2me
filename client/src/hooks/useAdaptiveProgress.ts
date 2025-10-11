@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getAuthHeaders } from "@/lib/auth";
 
 export interface AdaptiveRecommendations {
   recommendedLevel: number;
@@ -18,9 +19,7 @@ export function useAdaptiveRecommendations() {
     queryKey: ['adaptive-recommendations'],
     queryFn: async (): Promise<AdaptiveRecommendations> => {
       const response = await fetch('/api/progress/adaptive', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -38,9 +37,7 @@ export function useProgressSummary() {
     queryKey: ['progress-summary'],
     queryFn: async () => {
       const response = await fetch('/api/progress', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -58,9 +55,7 @@ export function useWeeklyProgress() {
     queryKey: ['weekly-progress'],
     queryFn: async () => {
       const response = await fetch('/api/progress/weekly', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -78,9 +73,7 @@ export function useDetailedProgress(limit: number = 20) {
     queryKey: ['detailed-progress', limit],
     queryFn: async () => {
       const response = await fetch(`/api/progress/detailed?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -98,9 +91,7 @@ export function usePerformanceAnalysis() {
     queryKey: ['performance-analysis'],
     queryFn: async () => {
       const response = await fetch('/api/progress/analysis', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

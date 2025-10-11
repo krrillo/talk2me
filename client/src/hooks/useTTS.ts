@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useAuthStore } from "@/lib/stores/useAuthStore";
+import { getAuthHeaders } from "@/lib/auth";
 
 export type TTSVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
@@ -21,15 +21,13 @@ interface GenerateStoryAudioParams {
 }
 
 export function useGenerateSpeech() {
-  const user = useAuthStore((state) => state.user);
-
   return useMutation({
     mutationFn: async ({ text, options = {} }: GenerateSpeechParams) => {
       const response = await fetch("/api/tts/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user?.id}:${user?.username}:${user?.level || 1}`,
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           text,
@@ -50,8 +48,6 @@ export function useGenerateSpeech() {
 }
 
 export function useGenerateStoryAudio() {
-  const user = useAuthStore((state) => state.user);
-
   return useMutation({
     mutationFn: async ({
       storyId,
@@ -63,7 +59,7 @@ export function useGenerateStoryAudio() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user?.id}:${user?.username}:${user?.level || 1}`,
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           storyId,

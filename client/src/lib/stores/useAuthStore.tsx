@@ -27,10 +27,10 @@ export const useAuthStore = create<AuthState>()(
       login: async (username: string) => {
         set({ isLoading: true });
         try {
-          // For now, create a simple user object
-          // In a real app, this would make an API call
+          // Generate a proper UUID for the user
+          const uuid = crypto.randomUUID();
           const user: User = {
-            id: `user_${Date.now()}`,
+            id: uuid,
             username: username,
             level: 1,
             createdAt: new Date(),
