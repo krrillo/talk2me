@@ -1,4 +1,5 @@
 import express from "express";
+import passport from "passport";
 import { validateBody } from "../middleware/auth";
 import { LoginRequestSchema } from "@shared/validation";
 import { createSuccessResponse, createErrorResponse } from "@shared/validation";
@@ -102,6 +103,33 @@ router.patch('/preferences', async (req, res) => {
     res.status(500).json(createErrorResponse('Failed to update preferences'));
   }
 });
+
+// Google OAuth routes
+router.get('/google',
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    session: false
+  })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', { 
+    failureRedirect: '/',
+    session: false
+  }),
+  (req, res) => {
+    const user = req.user as any;
+    
+    if (!user) {
+      return res.redirect('/?error=auth_failed');
+    }
+
+    const token = authService.generateUserToken(user);
+    const sessionId = authService.generateSessionId(user);
+    
+    res.redirect(`/?token=${token}&sessionId=${sessionId}&newUser=${!user.emailVerified}`);
+  }
+);
 
 // Logout (simple - just acknowledge)
 router.post('/logout', (req, res) => {

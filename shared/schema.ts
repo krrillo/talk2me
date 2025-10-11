@@ -6,7 +6,13 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   username: varchar("username", { length: 100 }).notNull().unique(),
-  role: varchar("role", { length: 20 }).notNull().default("student"), // student, parent, therapist
+  email: varchar("email", { length: 255 }).unique(), // For Google OAuth and email-based auth
+  googleId: varchar("google_id", { length: 255 }).unique(), // Google OAuth ID
+  displayName: varchar("display_name", { length: 200 }), // Full name from Google
+  photoUrl: text("photo_url"), // Profile photo URL
+  role: varchar("role", { length: 20 }).notNull().default("student"), // student, parent, therapist, admin
+  parentId: uuid("parent_id"), // For child accounts, points to parent (self-reference)
+  emailVerified: boolean("email_verified").notNull().default(false),
   level: integer("level").notNull().default(1),
   experiencePoints: integer("experience_points").notNull().default(0),
   preferences: jsonb("preferences").default({}), // UI preferences, accessibility settings
@@ -85,6 +91,18 @@ export const dailyProgress = pgTable("daily_progress", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Consents table - GDPR/COPPA compliance for consent tracking
+export const consents = pgTable("consents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  type: varchar("type", { length: 20 }).notNull(), // 'terms' or 'privacy'
+  version: varchar("version", { length: 10 }).notNull(), // e.g., 'v1.0'
+  accepted: boolean("accepted").notNull().default(true),
+  acceptedAt: timestamp("accepted_at").defaultNow().notNull(),
+  ip: varchar("ip", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("user_agent"),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -123,6 +141,13 @@ export const insertAssetSchema = createInsertSchema(assets).omit({
 
 export const selectAssetSchema = createSelectSchema(assets);
 
+export const insertConsentSchema = createInsertSchema(consents).omit({
+  id: true,
+  acceptedAt: true,
+});
+
+export const selectConsentSchema = createSelectSchema(consents);
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -136,3 +161,5 @@ export type Asset = typeof assets.$inferSelect;
 export type InsertAsset = typeof assets.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type DailyProgress = typeof dailyProgress.$inferSelect;
+export type Consent = typeof consents.$inferSelect;
+export type InsertConsent = typeof consents.$inferInsert;
