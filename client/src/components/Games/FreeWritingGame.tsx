@@ -45,7 +45,7 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
 
   const validateWithAI = async (text: string): Promise<GrammarFeedback> => {
     try {
-      const response = await fetch("/api/validate-writing", {
+      const response = await fetch("/api/evaluation/validate-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,7 +59,8 @@ function FreeWritingGame({ spec, onComplete }: FreeWritingGameProps) {
         throw new Error("Validation failed");
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.data || data;
     } catch (error) {
       console.error("AI validation error:", error);
       return {

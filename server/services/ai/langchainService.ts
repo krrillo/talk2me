@@ -247,7 +247,12 @@ export class LangChainOrchestrator {
       2: "Gender agreement (niño/niña), plural forms, past tense introduction", 
       3: "Verb conjugation (yo, tú, él/ella), adjective agreement, future tense",
       4: "Complex sentences, subjunctive mood, prepositions, relative pronouns",
-      5: "Advanced grammar, subordinate clauses, conditional mood, literary devices"
+      5: "Advanced grammar, subordinate clauses, conditional mood, literary devices",
+      6: "Literary devices, advanced verb moods, nuanced register",
+      7: "Academic writing, formal discourse markers, complex argumentation",
+      8: "Advanced stylistics, rhetorical structures, sophisticated vocabulary",
+      9: "Professional writing, technical precision, genre-specific conventions",
+      10: "Expert-level grammar, all linguistic registers, creative language use"
     };
     
     return focuses[level as keyof typeof focuses] || focuses[1];
@@ -310,6 +315,108 @@ export class LangChainOrchestrator {
         recommendedLevel: 1,
         focusAreas: ["articles", "basic vocabulary"],
         nextExercises: ["drag_words", "multi_choice"],
+      };
+    }
+  }
+
+  async validateWriting(text: string, level: number, rubric: string[] = []): Promise<{
+    isValid: boolean;
+    score: number;
+    errors: Array<{
+      type: string;
+      message: string;
+      suggestion?: string;
+    }>;
+    strengths: string[];
+  }> {
+    const grammarFocus = this.getGrammarFocusForLevel(level);
+    const rubricText = rubric.length > 0 ? rubric.join(', ') : 'coherencia, ortografía, gramática';
+
+    const prompt = PromptTemplate.fromTemplate(`
+      Eres un profesor de español que revisa la redacción de un niño de nivel {level}.
+
+      Texto del estudiante: "{text}"
+
+      Criterios de evaluación: {rubricText}
+
+      Aspectos gramaticales del nivel {level}: {grammarFocus}
+
+      Analiza el texto y proporciona:
+      1. Errores gramaticales específicos (género, concordancia, verbos, ortografía)
+      2. Sugerencias concretas para cada error
+      3. Aspectos positivos del texto (qué hizo bien el estudiante)
+      4. Puntuación de 0-100 basada en la calidad
+
+      Criterios de puntuación:
+      - 90-100: Excelente, sin errores o errores muy menores
+      - 70-89: Bueno, algunos errores pero buen esfuerzo
+      - 50-69: Regular, varios errores a corregir
+      - 30-49: Necesita mejorar, muchos errores
+      - 0-29: Necesita mucha práctica
+
+      Devuelve SOLO JSON válido en este formato:
+      {{
+        "isValid": true/false,
+        "score": 0-100,
+        "errors": [
+          {{
+            "type": "Tipo de error (género, verbo, ortografía, etc.)",
+            "message": "Descripción clara del error",
+            "suggestion": "Cómo corregirlo"
+          }}
+        ],
+        "strengths": [
+          "Aspecto positivo 1",
+          "Aspecto positivo 2"
+        ]
+      }}
+
+      IMPORTANTE:
+      - Sé constructivo y alentador
+      - Señala máximo 5 errores principales (prioriza los más importantes)
+      - Siempre encuentra al menos 1 aspecto positivo
+      - Usa lenguaje simple para niños
+    `);
+
+    const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
+
+    try {
+      const result = await chain.invoke({
+        text,
+        level,
+        grammarFocus,
+        rubricText,
+      });
+
+      // Safely extract errors array
+      const errors = Array.isArray(result.errors) ? result.errors : [];
+      
+      // Ensure at least one strength even if AI doesn't provide any
+      const strengths = Array.isArray(result.strengths) && result.strengths.length > 0
+        ? result.strengths
+        : ["¡Buen esfuerzo en tu redacción!"];
+
+      // Use nullish check to preserve legitimate 0 scores
+      const rawScore = typeof result.score === "number" ? result.score : 70;
+
+      return {
+        isValid: errors.length === 0,
+        score: Math.min(100, Math.max(0, rawScore)),
+        errors,
+        strengths,
+      };
+    } catch (error) {
+      console.error("Error validating writing:", error);
+      // Return a failure state so user knows validation didn't work
+      return {
+        isValid: false,
+        score: 50,
+        errors: [{
+          type: "Error del sistema",
+          message: "No pudimos revisar tu texto en este momento. Intenta de nuevo.",
+          suggestion: "Revisa tu ortografía y gramática manualmente.",
+        }],
+        strengths: ["¡Buen intento! Tu esfuerzo es importante."],
       };
     }
   }

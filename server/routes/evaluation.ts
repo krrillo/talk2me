@@ -2,6 +2,7 @@ import express from "express";
 import { requireAuth, validateBody, AuthRequest } from "../middleware/auth";
 import { createSuccessResponse, createErrorResponse } from "@shared/validation";
 import { evaluationService } from "../services/ai/evaluationService";
+import { langchainService } from "../services/ai/langchainService";
 import { z } from "zod";
 
 const router = express.Router();
@@ -13,6 +14,12 @@ const EvaluateAnswerSchema = z.object({
     attempts: z.number().optional(),
     timeSpent: z.number().optional(),
   }).optional(),
+});
+
+const ValidateWritingSchema = z.object({
+  text: z.string().min(1),
+  level: z.number().min(1).max(10),
+  rubric: z.array(z.string()).optional(),
 });
 
 router.post('/evaluate', 
@@ -82,6 +89,29 @@ router.get('/user/:userId/analysis',
     } catch (error) {
       console.error('[Evaluation] Error getting analysis:', error);
       res.status(500).json(createErrorResponse('Failed to get performance analysis'));
+    }
+  }
+);
+
+router.post('/validate-writing',
+  requireAuth,
+  validateBody(ValidateWritingSchema),
+  async (req: AuthRequest, res) => {
+    try {
+      const { text, level, rubric } = req.body;
+
+      console.log(`[Validation] Validating writing for level ${level}, length: ${text.length}`);
+
+      const validation = await langchainService.validateWriting(text, level, rubric);
+
+      res.json(createSuccessResponse(validation));
+
+    } catch (error) {
+      console.error('[Validation] Error:', error);
+      res.status(500).json(createErrorResponse(
+        'Failed to validate writing',
+        error instanceof Error ? error.message : 'Unknown error'
+      ));
     }
   }
 );
