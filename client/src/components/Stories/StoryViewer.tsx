@@ -1,21 +1,40 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, Pause, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Story, GameSpec } from "@/lib/types";
 import gsap from "gsap";
 import { TTSControls } from "@/components/TTS/TTSControls";
 import { apiRequest } from "@/lib/api";
 import { VocabularyPreview } from "./VocabularyPreview";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type ReadingSpeed = 'slow' | 'normal' | 'fast';
+
+const READING_SPEEDS = {
+  slow: { label: '🐢 Lento', duration: 15000 },
+  normal: { label: '👤 Normal', duration: 10000 },
+  fast: { label: '🐇 Rápido', duration: 6000 },
+};
 
 export default function StoryViewer() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const [showVocabulary, setShowVocabulary] = useState(true);
+  const [readingSpeed, setReadingSpeed] = useState<ReadingSpeed>('normal');
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const animationRef = useRef<number | null>(null);
 
   // Fetch story data
   const { data: storyData, isLoading, error } = useQuery({
@@ -50,6 +69,50 @@ export default function StoryViewer() {
       { opacity: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" }
     );
   }, [currentPage]);
+
+  // Auto-advance logic with requestAnimationFrame for smooth, deterministic timing
+  useEffect(() => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
+    if (!autoAdvance || !story || currentPage >= story.pages.length - 1) {
+      setTimeLeft(0);
+      startTimeRef.current = 0;
+      return;
+    }
+
+    const duration = READING_SPEEDS[readingSpeed].duration;
+    startTimeRef.current = Date.now();
+    setTimeLeft(duration);
+
+    const updateTimer = () => {
+      const elapsed = Date.now() - startTimeRef.current;
+      const remaining = Math.max(0, duration - elapsed);
+      
+      setTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        // Time's up, advance to next page
+        if (story && currentPage < story.pages.length - 1) {
+          setCurrentPage(prev => prev + 1);
+        }
+      } else {
+        // Continue animation
+        animationRef.current = requestAnimationFrame(updateTimer);
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(updateTimer);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+  }, [autoAdvance, currentPage, readingSpeed, story]);
 
   const handleGoBack = () => {
     navigate('/dashboard');
@@ -125,20 +188,80 @@ export default function StoryViewer() {
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <Button onClick={handleGoBack} variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Volver
             </Button>
             
-            <div className="text-center">
+            <div className="text-center flex-1">
               <h1 className="text-xl font-bold text-gray-800">{story.title}</h1>
               <p className="text-sm text-gray-600">
                 Página {currentPage + 1} de {totalPages}
               </p>
             </div>
 
-            <div className="w-12"></div>
+            {/* Reading Controls */}
+            <div className="flex items-center gap-2">
+              {/* Auto-advance toggle */}
+              <Button
+                onClick={() => setAutoAdvance(!autoAdvance)}
+                variant={autoAdvance ? "default" : "outline"}
+                size="sm"
+                className="relative"
+                disabled={currentPage >= totalPages - 1}
+              >
+                {autoAdvance ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Pausar
+                    {timeLeft > 0 && (
+                      <svg className="absolute -right-2 -top-2 w-8 h-8 transform -rotate-90">
+                        <circle
+                          cx="16"
+                          cy="16"
+                          r="12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeDasharray={`${2 * Math.PI * 12}`}
+                          strokeDashoffset={`${2 * Math.PI * 12 * (1 - timeLeft / READING_SPEEDS[readingSpeed].duration)}`}
+                          className="text-blue-400"
+                        />
+                      </svg>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Auto
+                  </>
+                )}
+              </Button>
+
+              {/* Speed selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings className="w-4 h-4 mr-2" />
+                    {READING_SPEEDS[readingSpeed].label}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white">
+                  {(Object.keys(READING_SPEEDS) as ReadingSpeed[]).map((speed) => (
+                    <DropdownMenuItem
+                      key={speed}
+                      onClick={() => setReadingSpeed(speed)}
+                      className={`cursor-pointer ${
+                        speed === readingSpeed ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                      }`}
+                    >
+                      {READING_SPEEDS[speed].label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </div>
