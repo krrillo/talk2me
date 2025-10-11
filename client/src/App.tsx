@@ -6,11 +6,53 @@ import StudentDashboard from "./components/Dashboard/StudentDashboard";
 import GameHost from "./components/Games/GameHost";
 import StoryViewer from "./components/Stories/StoryViewer";
 import { useAuth } from "./hooks/useAuth";
+import { useAuthStore } from "./lib/stores/useAuthStore";
 import "@fontsource/inter";
 
 function App() {
   const { user, loading } = useAuth();
+  const { setUser } = useAuthStore();
   const [showHighContrast, setShowHighContrast] = useState(false);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const sessionId = urlParams.get('sessionId');
+
+    if (token && sessionId) {
+      (async () => {
+        try {
+          const response = await fetch('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Session-Id': sessionId,
+            },
+          });
+
+          if (!response.ok) {
+            console.error('OAuth verification failed');
+            window.history.replaceState({}, document.title, '/');
+            return;
+          }
+
+          const result = await response.json();
+          if (result.success && result.data) {
+            setUser({
+              id: result.data.id,
+              username: result.data.username,
+              level: result.data.level,
+              createdAt: new Date(),
+            });
+          }
+
+          window.history.replaceState({}, document.title, '/');
+        } catch (error) {
+          console.error('OAuth callback error:', error);
+          window.history.replaceState({}, document.title, '/');
+        }
+      })();
+    }
+  }, [setUser]);
 
   useEffect(() => {
     // Check for high contrast preference
