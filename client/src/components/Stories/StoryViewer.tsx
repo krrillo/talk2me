@@ -3,17 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { ArrowLeft, Play, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Story, GameSpec } from "@/lib/types";
 import gsap from "gsap";
+import { TTSControls } from "@/components/TTS/TTSControls";
 
 export default function StoryViewer() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
-  const [isReading, setIsReading] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
 
   // Fetch story data
   const { data: story, isLoading, error } = useQuery<Story>({
@@ -59,30 +58,6 @@ export default function StoryViewer() {
     }
   };
 
-  const toggleAudio = () => {
-    setAudioEnabled(prev => !prev);
-    if (!audioEnabled) {
-      toast.info("Audio activado - Las páginas se leerán automáticamente");
-    } else {
-      toast.info("Audio desactivado");
-    }
-  };
-
-  // Text-to-speech simulation (in real app, would use Web Speech API or server TTS)
-  const readCurrentPage = () => {
-    if ('speechSynthesis' in window && story && audioEnabled) {
-      const utterance = new SpeechSynthesisUtterance(story.pages[currentPage].text);
-      utterance.lang = 'es-ES';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    }
-  };
-
-  useEffect(() => {
-    if (audioEnabled && story) {
-      readCurrentPage();
-    }
-  }, [currentPage, audioEnabled, story]);
 
   if (isLoading) {
     return (
@@ -134,17 +109,7 @@ export default function StoryViewer() {
               </p>
             </div>
 
-            <Button 
-              onClick={toggleAudio} 
-              variant="outline" 
-              size="sm"
-              className={audioEnabled ? 'bg-blue-50 border-blue-300' : ''}
-            >
-              {audioEnabled ? 
-                <Volume2 className="w-4 h-4 text-blue-600" /> : 
-                <VolumeX className="w-4 h-4" />
-              }
-            </Button>
+            <div className="w-12"></div>
           </div>
         </div>
       </div>
@@ -176,6 +141,11 @@ export default function StoryViewer() {
                   <p className="text-xl md:text-2xl leading-relaxed text-gray-800 font-medium">
                     {currentStoryPage.text}
                   </p>
+                </div>
+
+                {/* TTS Controls */}
+                <div className="mt-6">
+                  <TTSControls text={currentStoryPage.text} />
                 </div>
 
                 {/* Page Navigation */}
