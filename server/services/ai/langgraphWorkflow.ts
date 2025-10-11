@@ -8,7 +8,7 @@ interface WorkflowState {
   userId: number;
   level: number;
   theme?: string;
-  storyId?: number;
+  storyId?: string;
   storyContent?: any;
   storyPages?: any[];
   imageUrls?: string[];
@@ -120,12 +120,15 @@ export class MultimodalLearningWorkflow {
 
       const [savedStory] = await db.insert(stories).values({
         title: state.storyContent.title,
-        content: state.storyContent.content,
         level: state.level,
         theme: state.theme || "daily life",
-        vocabularyFocus: state.storyContent.vocabulary || [],
-        grammarFocus: state.storyContent.grammar || [],
         pages: state.storyPages,
+        aiMetadata: {
+          vocabulary: state.storyContent.vocabulary || [],
+          grammar: state.storyContent.grammar || [],
+          generatedBy: "gpt-4",
+          generatedAt: new Date().toISOString(),
+        },
       }).returning();
 
       console.log(`[Workflow] Story saved with ID: ${savedStory.id}`);
@@ -157,12 +160,20 @@ export class MultimodalLearningWorkflow {
       const exercisePromises = exerciseResult.exercises.map(async (exercise: any) => {
         const [savedExercise] = await db.insert(exercises).values({
           storyId: state.storyId!,
-          type: exercise.type,
-          question: exercise.question,
-          options: exercise.options || [],
+          gameType: exercise.type || "multiple_choice",
+          level: state.level,
+          exerciseData: {
+            question: exercise.question,
+            options: exercise.options || [],
+            words: exercise.words || [],
+            sentence: exercise.sentence || "",
+          },
           correctAnswer: exercise.correctAnswer,
-          difficulty: state.level,
-          points: exercise.points || 10,
+          hints: exercise.hints || [],
+          aiMetadata: {
+            generatedBy: "gpt-4",
+            generatedAt: new Date().toISOString(),
+          },
         }).returning();
 
         return savedExercise;
@@ -188,16 +199,17 @@ export class MultimodalLearningWorkflow {
         return {};
       }
 
-      console.log(`[Workflow] Saving ${state.imageUrls.length} image assets`);
+      console.log(`[Workflow] Saving ${state.imageUrls.length} image assets for story ${state.storyId}`);
 
       const assetPromises = state.imageUrls.map(async (url: string, index: number) => {
         await db.insert(assets).values({
+          storyId: state.storyId!,
           type: "image",
           url: url,
           metadata: {
-            storyId: state.storyId,
             pageIndex: index,
             generatedBy: "dall-e-3",
+            generatedAt: new Date().toISOString(),
           },
         });
       });
@@ -228,6 +240,10 @@ export class MultimodalLearningWorkflow {
         throw new Error(result.error);
       }
 
+      if (!result.storyId) {
+        throw new Error("Story was not saved successfully - no story ID returned");
+      }
+
       console.log(`[Workflow] Workflow completed successfully. Story ID: ${result.storyId}`);
 
       return {
@@ -238,7 +254,7 @@ export class MultimodalLearningWorkflow {
       };
     } catch (error) {
       console.error("[Workflow] Workflow execution failed:", error);
-      throw error;
+      throw new Error(`Multimodal workflow failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }
