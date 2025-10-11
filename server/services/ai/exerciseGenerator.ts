@@ -58,7 +58,7 @@ export class ExerciseGeneratorService {
           level: story.level,
           theme: story.theme,
           gameType: exercise.gameType as any,
-          story: storyText.substring(0, 200) + "...", // Truncated story context
+          story: storyText, // Full story context for better comprehension
           exercise: exercise.exercise,
           uiHints: this.generateUIHints(story.level),
         };
@@ -104,7 +104,7 @@ export class ExerciseGeneratorService {
         level: exercise.exercise.level,
         theme: exercise.story.theme,
         gameType: exercise.exercise.gameType as any,
-        story: exercise.story.pages.map((p: any) => p.text).join(' ').substring(0, 200) + "...",
+        story: exercise.story.pages.map((p: any) => p.text).join(' '),
         exercise: exercise.exercise.exerciseData as any,
         uiHints: this.generateUIHints(exercise.exercise.level),
       };
@@ -138,7 +138,7 @@ export class ExerciseGeneratorService {
         level: exercise.level,
         theme: story.theme,
         gameType: exercise.gameType as any,
-        story: story.pages.map((p: any) => p.text).join(' ').substring(0, 200) + "...",
+        story: story.pages.map((p: any) => p.text).join(' '),
         exercise: exercise.exerciseData as any,
         uiHints: this.generateUIHints(exercise.level),
       }));
@@ -192,7 +192,7 @@ export class ExerciseGeneratorService {
         level: story.level,
         theme: story.theme,
         gameType: gameType as any,
-        story: story.pages.map((p: any) => p.text).join(' ').substring(0, 200) + "...",
+        story: story.pages.map((p: any) => p.text).join(' '),
         exercise: exerciseContent,
         uiHints: this.generateUIHints(story.level),
       };

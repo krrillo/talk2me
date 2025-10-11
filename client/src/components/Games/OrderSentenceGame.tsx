@@ -6,6 +6,7 @@ import { GameSpec } from "@/lib/types";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import gsap from "gsap";
+import { StoryContext } from "./StoryContext";
 
 interface OrderSentenceGameProps {
   spec: GameSpec;
@@ -190,11 +191,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
 
             {/* Story Context */}
             {spec.story && (
-              <div className="mb-6 p-4 bg-green-50 rounded-lg border-l-4 border-green-400">
-                <p className="text-gray-700 text-lg leading-relaxed">
-                  {spec.story}
-                </p>
-              </div>
+              <StoryContext story={spec.story} colorScheme="green" />
             )}
 
             {/* Current Sentence Preview */}

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { GameSpec } from "@/lib/types";
 import gsap from "gsap";
+import { StoryContext } from "./StoryContext";
 
 interface CompleteWordsGameProps {
   spec: GameSpec;
@@ -146,11 +147,7 @@ function CompleteWordsGame({ spec, onComplete }: CompleteWordsGameProps) {
 
           {/* Story Context */}
           {spec.story && (
-            <div className="mb-6 p-4 bg-purple-50 rounded-lg border-l-4 border-purple-400">
-              <p className="text-gray-700 text-lg leading-relaxed">
-                {spec.story}
-              </p>
-            </div>
+            <StoryContext story={spec.story} colorScheme="purple" />
           )}
 
           {/* Sentence with blank */}

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { GameSpec } from "@/lib/types";
 import gsap from "gsap";
+import { StoryContext } from "./StoryContext";
 
 interface MultipleChoiceGameProps {
   spec: GameSpec;
@@ -208,11 +209,7 @@ function MultipleChoiceGame({ spec, onComplete }: MultipleChoiceGameProps) {
 
           {/* Story Context */}
           {spec.story && (
-            <div className="mb-6 p-4 bg-indigo-50 rounded-lg border-l-4 border-indigo-400">
-              <p className="text-gray-700 text-lg leading-relaxed">
-                {spec.story}
-              </p>
-            </div>
+            <StoryContext story={spec.story} colorScheme="indigo" />
           )}
 
           {/* Question */}
