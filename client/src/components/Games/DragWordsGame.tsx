@@ -136,7 +136,15 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
   }, [spec]);
 
   const handleDrop = (word: string) => {
+    // Si ya hay una palabra en la zona de drop, la devolvemos a disponibles
+    if (droppedWord && droppedWord !== word) {
+      setAvailableWords(prev => [...prev, droppedWord]);
+    }
+    
+    // Colocamos la nueva palabra
     setDroppedWord(word);
+    
+    // Removemos la palabra arrastrada de disponibles
     setAvailableWords(prev => prev.filter(w => w !== word));
   };
 
@@ -204,8 +212,8 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
 
             {/* Story Context */}
             {spec.story && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                <p className="text-gray-700 text-lg leading-relaxed">
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400 max-h-40 overflow-y-auto">
+                <p className="text-gray-800 text-lg leading-relaxed font-medium">
                   {spec.story}
                 </p>
               </div>
