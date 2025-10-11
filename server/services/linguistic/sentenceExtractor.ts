@@ -60,7 +60,7 @@ export function extractSentences(text: string): SentenceAnalysis[] {
 /**
  * Analiza una oración individual
  */
-function analyzeSentence(sentence: string): SentenceAnalysis {
+export function analyzeSentence(sentence: string): SentenceAnalysis {
   const words = sentence.split(/\s+/).filter(w => w.length > 0);
   const lowerWords = words.map(w => w.toLowerCase());
 

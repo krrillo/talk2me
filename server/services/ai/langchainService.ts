@@ -153,7 +153,10 @@ export class LangChainOrchestrator {
       
       // Analizar texto de la historia
       const textAnalysis = analyzeText(storyText);
-      console.log(`[LangChain] Texto analizado: ${textAnalysis.sentenceCount} oraciones, ${textAnalysis.averageWords} palabras promedio`);
+      const avgWords = textAnalysis.sentences.length > 0 
+        ? Math.round(textAnalysis.totalWords / textAnalysis.sentences.length) 
+        : 0;
+      console.log(`[LangChain] Texto analizado: ${textAnalysis.sentences.length} oraciones, ${avgWords} palabras promedio`);
       
       // Validar y regenerar ejercicios si es necesario
       const validatedExercises = await this.validateAndRegenerateExercises(
