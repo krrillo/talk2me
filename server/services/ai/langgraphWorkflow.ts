@@ -43,16 +43,12 @@ export class MultimodalLearningWorkflow {
     });
 
     workflow.addNode("generate_story", this.generateStoryNode.bind(this));
-    workflow.addNode("generate_images", this.generateImagesNode.bind(this));
-    workflow.addNode("save_story", this.saveStoryNode.bind(this));
-    workflow.addNode("generate_exercises", this.generateExercisesNode.bind(this));
+    workflow.addNode("parallel_processing", this.parallelProcessingNode.bind(this));
     workflow.addNode("save_assets", this.saveAssetsNode.bind(this));
 
     workflow.addEdge(START as any, "generate_story");
-    workflow.addEdge("generate_story" as any, "generate_images");
-    workflow.addEdge("generate_images" as any, "save_story");
-    workflow.addEdge("save_story" as any, "generate_exercises");
-    workflow.addEdge("generate_exercises" as any, "save_assets");
+    workflow.addEdge("generate_story" as any, "parallel_processing");
+    workflow.addEdge("parallel_processing" as any, "save_assets");
     workflow.addEdge("save_assets" as any, END);
 
     return workflow.compile();
@@ -72,8 +68,8 @@ export class MultimodalLearningWorkflow {
         storyContent: {
           title: result.story.title,
           pages: result.story.pages,
-          vocabulary: result.story.vocabulary || [],
-          grammar: result.story.grammarFocus || [],
+          vocabulary: [],
+          grammar: [],
           content: result.story.pages.map((p: any) => p.text).join(' '),
         },
         storyPages: result.story.pages,
@@ -85,118 +81,120 @@ export class MultimodalLearningWorkflow {
     }
   }
 
-  private async generateImagesNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
+  private async parallelProcessingNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
     try {
-      if (!state.storyPages || state.storyPages.length === 0) {
-        console.log("[Workflow] No pages to generate images for");
-        return { imageUrls: [] };
-      }
+      console.log(`[Workflow] Starting optimized processing with parallel image generation`);
 
-      console.log(`[Workflow] Generating ${state.storyPages.length} images for story pages`);
+      // Step 1: Generate all images in parallel (fastest part to parallelize)
+      const imageUrls = await this.generateImagesParallel(state);
       
-      const imagePromises = state.storyPages.map(async (page: any, index: number) => {
-        const imagePrompt = `Illustration for children's Spanish learning story: ${page.text}. Scene ${index + 1}`;
-        const imageUrl = await this.orchestrator.generateImage(imagePrompt, "flat-illustration");
-        return imageUrl;
-      });
-
-      const imageUrls = await Promise.all(imagePromises);
+      // Validate that pages have imageUrl before saving
+      const pagesWithImages = state.storyPages?.filter(p => p.imageUrl).length || 0;
+      console.log(`[Workflow] Validation: ${pagesWithImages}/${state.storyPages?.length || 0} pages have images`);
       
-      const pagesWithImages = state.storyPages.map((page: any, index: number) => ({
-        ...page,
-        imageUrl: imageUrls[index] || "",
-      }));
+      // Step 2: Save story with image URLs (now includes imageUrl fields)
+      const storyId = await this.saveStoryToDb(state);
 
-      console.log(`[Workflow] Generated ${imageUrls.filter(url => url).length} images successfully`);
+      // Step 3: Save exercises with the storyId
+      await this.saveExercisesToDb(state, storyId);
+
+      console.log(`[Workflow] Parallel processing completed. Story ID: ${storyId}`);
 
       return {
-        imageUrls: imageUrls.filter(url => url),
-        storyPages: pagesWithImages,
+        storyId: storyId,
+        imageUrls: imageUrls,
+        exercisesGenerated: true,
       };
     } catch (error) {
-      console.error("[Workflow] Image generation failed:", error);
-      return { imageUrls: [] };
+      console.error("[Workflow] Parallel processing failed:", error);
+      return { error: "Failed to process content" };
     }
   }
 
-  private async saveStoryNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
-    try {
-      if (!state.storyContent || !state.storyPages) {
-        throw new Error("No story content to save");
-      }
+  private async generateImagesParallel(state: WorkflowState): Promise<string[]> {
+    if (!state.storyPages || state.storyPages.length === 0) {
+      console.log("[Workflow] No pages to generate images for");
+      return [];
+    }
 
-      console.log("[Workflow] Saving story to database");
+    console.log(`[Workflow] Generating ${state.storyPages.length} images in parallel`);
+    
+    const imagePromises = state.storyPages.map(async (page: any, index: number) => {
+      const imagePrompt = `Illustration for children's Spanish learning story: ${page.text}. Scene ${index + 1}`;
+      return await this.orchestrator.generateImage(imagePrompt, "flat-illustration");
+    });
 
-      const [savedStory] = await db.insert(stories).values({
-        title: state.storyContent.title,
+    const imageUrls = await Promise.all(imagePromises);
+    
+    // Update story pages with image URLs
+    state.storyPages = state.storyPages.map((page: any, index: number) => ({
+      ...page,
+      imageUrl: imageUrls[index] || "",
+    }));
+
+    console.log(`[Workflow] Generated ${imageUrls.filter(url => url).length} images successfully`);
+    return imageUrls.filter(url => url);
+  }
+
+  private async saveStoryToDb(state: WorkflowState): Promise<string> {
+    if (!state.storyContent || !state.storyPages) {
+      throw new Error("No story content to save");
+    }
+
+    console.log("[Workflow] Saving story to database");
+
+    const [savedStory] = await db.insert(stories).values({
+      title: state.storyContent.title,
+      level: state.level,
+      theme: state.theme || "daily life",
+      pages: state.storyPages,
+      aiMetadata: {
+        vocabulary: state.storyContent.vocabulary || [],
+        grammar: state.storyContent.grammar || [],
+        generatedBy: "gpt-4",
+        generatedAt: new Date().toISOString(),
+      },
+    }).returning();
+
+    console.log(`[Workflow] Story saved with ID: ${savedStory.id}`);
+    return savedStory.id;
+  }
+
+  private async saveExercisesToDb(state: WorkflowState, storyId: string): Promise<void> {
+    if (!state.exercises || state.exercises.length === 0) {
+      console.log("[Workflow] No exercises to save");
+      return;
+    }
+
+    console.log(`[Workflow] Saving ${state.exercises.length} exercises for story ${storyId}`);
+
+    const exercisePromises = state.exercises.map(async (exercise: any) => {
+      return await db.insert(exercises).values({
+        storyId: storyId,
+        gameType: exercise.gameType || exercise.type || "multiple_choice",
         level: state.level,
-        theme: state.theme || "daily life",
-        pages: state.storyPages,
+        exerciseData: {
+          question: exercise.question || exercise.exercise?.payload?.question || exercise.payload?.question,
+          options: exercise.options || exercise.exercise?.payload?.options || exercise.payload?.options || [],
+          words: exercise.words || exercise.exercise?.payload?.words || exercise.payload?.words || [],
+          sentence: exercise.sentence || exercise.exercise?.payload?.sentence || exercise.payload?.sentence || "",
+          choices: exercise.exercise?.payload?.choices || exercise.payload?.choices || [],
+          correctIndex: exercise.exercise?.payload?.correctIndex ?? exercise.payload?.correctIndex,
+          correct: exercise.exercise?.payload?.correct || exercise.payload?.correct || "",
+        },
+        correctAnswer: exercise.correctAnswer || exercise.exercise?.payload?.correct || exercise.payload?.correct || "",
+        hints: exercise.hints || exercise.exercise?.payload?.hints || exercise.payload?.hints || [],
         aiMetadata: {
-          vocabulary: state.storyContent.vocabulary || [],
-          grammar: state.storyContent.grammar || [],
           generatedBy: "gpt-4",
           generatedAt: new Date().toISOString(),
         },
       }).returning();
+    });
 
-      console.log(`[Workflow] Story saved with ID: ${savedStory.id}`);
-
-      return {
-        storyId: savedStory.id,
-      };
-    } catch (error) {
-      console.error("[Workflow] Failed to save story:", error);
-      return { error: "Failed to save story" };
-    }
+    await Promise.all(exercisePromises);
+    console.log(`[Workflow] Saved ${state.exercises.length} exercises successfully`);
   }
 
-  private async generateExercisesNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
-    try {
-      if (!state.storyId || !state.exercises || state.exercises.length === 0) {
-        console.log("[Workflow] No exercises to save - using pre-generated exercises from story node");
-        if (!state.storyId) {
-          throw new Error("No story ID for exercise generation");
-        }
-        return { exercisesGenerated: false };
-      }
-
-      console.log(`[Workflow] Saving ${state.exercises.length} exercises for story ${state.storyId}`);
-
-      const exercisePromises = state.exercises.map(async (exercise: any) => {
-        const [savedExercise] = await db.insert(exercises).values({
-          storyId: state.storyId!,
-          gameType: exercise.gameType || exercise.type || "multiple_choice",
-          level: state.level,
-          exerciseData: {
-            question: exercise.question || exercise.payload?.question,
-            options: exercise.options || exercise.payload?.options || [],
-            words: exercise.words || exercise.payload?.words || [],
-            sentence: exercise.sentence || exercise.payload?.sentence || "",
-          },
-          correctAnswer: exercise.correctAnswer || exercise.payload?.correct || "",
-          hints: exercise.hints || exercise.payload?.hints || [],
-          aiMetadata: {
-            generatedBy: "gpt-4",
-            generatedAt: new Date().toISOString(),
-          },
-        }).returning();
-
-        return savedExercise;
-      });
-
-      await Promise.all(exercisePromises);
-
-      console.log(`[Workflow] Saved ${state.exercises.length} exercises successfully`);
-
-      return {
-        exercisesGenerated: true,
-      };
-    } catch (error) {
-      console.error("[Workflow] Exercise saving failed:", error);
-      return { error: "Failed to save exercises" };
-    }
-  }
 
   private async saveAssetsNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
     try {

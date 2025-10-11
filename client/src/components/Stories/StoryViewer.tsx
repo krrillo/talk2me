@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Story, GameSpec } from "@/lib/types";
 import gsap from "gsap";
 import { TTSControls } from "@/components/TTS/TTSControls";
+import { apiRequest } from "@/lib/api";
 
 export default function StoryViewer() {
   const { storyId } = useParams<{ storyId: string }>();
@@ -15,16 +16,30 @@ export default function StoryViewer() {
   const [currentPage, setCurrentPage] = useState(0);
 
   // Fetch story data
-  const { data: story, isLoading, error } = useQuery<Story>({
+  const { data: storyData, isLoading, error } = useQuery({
     queryKey: [`/api/stories/${storyId}`],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/stories/${storyId}`);
+      const result = await response.json();
+      return result.data;
+    },
     enabled: !!storyId,
   });
 
+  const story = storyData as Story | undefined;
+
   // Fetch associated game
-  const { data: gameSpec } = useQuery<GameSpec>({
+  const { data: gameData } = useQuery({
     queryKey: [`/api/stories/${storyId}/game`],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/stories/${storyId}/game`);
+      const result = await response.json();
+      return result.data;
+    },
     enabled: !!storyId,
   });
+
+  const gameSpec = gameData as GameSpec | undefined;
 
   useEffect(() => {
     // Animate page entrance
