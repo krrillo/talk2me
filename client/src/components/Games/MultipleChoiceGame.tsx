@@ -102,85 +102,108 @@ function ChoiceButton({ choice, index, isSelected, isRevealed, isCorrect, onClic
 
 function MultipleChoiceGame({ spec, onComplete }: MultipleChoiceGameProps) {
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
-  const [isRevealed, setIsRevealed] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30); // 30 seconds timer
-  const [timerActive, setTimerActive] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const gameRef = useRef<HTMLDivElement>(null);
 
   const question = spec.exercise?.payload?.question || "";
   const choices = spec.exercise?.payload?.choices || [];
   const correctIndex = spec.exercise?.payload?.correctIndex || 0;
 
-  useEffect(() => {
-    // Start timer when component mounts
-    setTimerActive(true);
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setTimerActive(false);
-          handleTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleTimeUp = () => {
-    if (!isRevealed) {
-      toast.warning("¡Se acabó el tiempo!");
-      setIsRevealed(true);
-      setTimeout(() => {
-        onComplete({ correct: false, score: 0 });
-      }, 2000);
-    }
-  };
-
   const handleChoiceSelect = (index: number) => {
-    if (isRevealed || !timerActive) return;
+    if (showResult) return;
     setSelectedChoice(index);
   };
 
   const handleSubmit = () => {
-    if (selectedChoice === null || isRevealed) return;
+    if (selectedChoice === null || showResult) return;
     
-    setTimerActive(false);
-    setIsRevealed(true);
+    const currentAttempt = attempts;
+    setAttempts(prev => prev + 1);
     
     const isCorrect = selectedChoice === correctIndex;
-    const timeBonus = Math.floor((timeLeft / 30) * 20); // Up to 20 bonus points for speed
-    const baseScore = isCorrect ? 80 : 0;
-    const finalScore = isCorrect ? baseScore + timeBonus : 0;
     
     if (isCorrect) {
-      toast.success(`¡Correcto! +${finalScore} puntos`);
+      toast.success("¡Correcto!");
+      
+      if (gameRef.current) {
+        gsap.to(gameRef.current, {
+          scale: 1.02,
+          duration: 0.3,
+          yoyo: true,
+          repeat: 1,
+          ease: "back.out(1.7)"
+        });
+      }
+      
+      setTimeout(() => {
+        setShowResult(true);
+        onComplete({ correct: true, score: Math.max(100 - (currentAttempt * 20), 20) });
+      }, 1500);
     } else {
-      toast.error(`Incorrecto. La respuesta correcta era: ${choices[correctIndex]}`);
+      if (gameRef.current) {
+        gsap.to(gameRef.current, {
+          x: -8,
+          duration: 0.1,
+          yoyo: true,
+          repeat: 6,
+          ease: "power2.inOut"
+        });
+      }
+      
+      // Retroalimentación progresiva según intentos
+      const hints = spec.exercise?.payload?.hints || [];
+      const explanation = spec.exercise?.payload?.explanation;
+      
+      if (currentAttempt === 0 && hints[0]) {
+        // Primer intento: pista sutil
+        setFeedbackMessage(`💡 Pista: ${hints[0]}`);
+        toast.info("¡Inténtalo de nuevo!");
+        setSelectedChoice(null); // Permitir reseleccionar
+      } else if (currentAttempt === 1 && hints[1]) {
+        // Segundo intento: pista más específica
+        setFeedbackMessage(`💡 Pista: ${hints[1]}`);
+        toast.info("¡Casi! Piensa un poco más...");
+        setSelectedChoice(null); // Permitir reseleccionar
+      } else if (currentAttempt >= 2) {
+        // Tercer intento: mostrar explicación completa
+        setFeedbackMessage(
+          explanation 
+            ? `✨ ${explanation}\n\n✅ La respuesta correcta es: "${choices[correctIndex]}"`
+            : `✅ La respuesta correcta es: "${choices[correctIndex]}"`
+        );
+        toast.warning("Te mostramos la respuesta");
+        
+        // Deshabilitar inmediatamente para evitar clics adicionales
+        setShowResult(true);
+        
+        // Después de 3 intentos, completar con puntuación mínima
+        setTimeout(() => {
+          onComplete({ correct: false, score: 40 });
+        }, 4000);
+      }
+      
+      setShowFeedback(true);
+      
+      // Ocultar feedback después de 3 segundos para permitir reintento
+      if (currentAttempt < 2) {
+        setTimeout(() => {
+          setShowFeedback(false);
+        }, 3000);
+      }
     }
-    
-    setTimeout(() => {
-      onComplete({ correct: isCorrect, score: finalScore });
-    }, 3000);
-  };
-
-  const getTimerColor = () => {
-    if (timeLeft > 20) return "text-green-600";
-    if (timeLeft > 10) return "text-yellow-600";
-    return "text-red-600";
   };
 
   return (
     <div ref={gameRef} className="max-w-4xl mx-auto">
       <Card className="overflow-hidden">
         <CardContent className="p-8">
-          {/* Header with timer */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Selección múltiple</h2>
-            <div className={`text-xl font-bold ${getTimerColor()}`}>
-              ⏰ {timeLeft}s
-            </div>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">Selección múltiple</h2>
+            <p className="text-gray-600">Elige la respuesta correcta</p>
           </div>
 
           {/* Story Context */}
@@ -204,14 +227,14 @@ function MultipleChoiceGame({ spec, onComplete }: MultipleChoiceGameProps) {
 
           {/* Choices */}
           <div className="mb-8 space-y-4">
-            <h3 className="text-lg font-semibold mb-4">Elige la respuesta correcta:</h3>
+            <h3 className="text-lg font-semibold mb-4">Opciones:</h3>
             {choices.map((choice: string, index: number) => (
               <ChoiceButton
                 key={index}
                 choice={choice}
                 index={index}
                 isSelected={selectedChoice === index}
-                isRevealed={isRevealed}
+                isRevealed={showResult}
                 isCorrect={index === correctIndex}
                 onClick={() => handleChoiceSelect(index)}
               />
@@ -223,35 +246,36 @@ function MultipleChoiceGame({ spec, onComplete }: MultipleChoiceGameProps) {
             <Button
               onClick={handleSubmit}
               variant="game"
-              size="xl"
-              disabled={selectedChoice === null || isRevealed || !timerActive}
+              size="lg"
+              disabled={selectedChoice === null || showResult}
             >
-              {isRevealed ? "Respuesta enviada" : "Confirmar respuesta"}
+              {showResult ? "Respuesta enviada" : "Confirmar respuesta"}
             </Button>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mb-4">
-            <div className="bg-gray-200 rounded-full h-3">
-              <div 
-                className={`h-3 rounded-full transition-all duration-1000 ${
-                  timeLeft > 20 ? 'bg-green-500' : 
-                  timeLeft > 10 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${(timeLeft / 30) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Explanation (shown after answer) */}
-          {isRevealed && spec.exercise?.payload?.explanation && (
-            <div className="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
-              <h3 className="font-semibold text-yellow-800 mb-2">💡 Explicación:</h3>
-              <p className="text-yellow-700">
-                {spec.exercise.payload.explanation}
-              </p>
+          {/* Feedback Card */}
+          {showFeedback && feedbackMessage && (
+            <div className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl animate-pulse">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">
+                  {attempts === 1 ? "💡" : attempts === 2 ? "🤔" : "✨"}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {attempts === 1 ? "Pista" : attempts === 2 ? "Otra pista" : "Explicación"}
+                  </h3>
+                  <p className="text-gray-800 text-base leading-relaxed whitespace-pre-line">
+                    {feedbackMessage}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Attempts Counter */}
+          <div className="text-center text-sm text-gray-500">
+            Intento: {attempts + 1}
+          </div>
         </CardContent>
       </Card>
     </div>
