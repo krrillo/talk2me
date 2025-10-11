@@ -6,7 +6,13 @@ import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { StoryGenerateRequest, GameSpec, EvaluationResponse, Theme, Level } from "@shared/types";
 import { validateContentSafety } from "@shared/validation";
 import { getLevelConfig, getWordRangeForLevel, getGrammarFocusForLevel } from "../../config/levels.js";
-import { buildExercisesTemplate } from "../../config/exerciseTemplates.js";
+import { buildEnhancedExercisesTemplate } from "../../config/enhancedExerciseTemplates.js";
+import { analyzeText, findSuitableSentences } from "../linguistic/sentenceExtractor.js";
+import { validateOrderSentence, validateCompleteWords, validateMultiChoice } from "../validators/grammarValidator.js";
+import { validateOrderSentenceCoherence, validateCompleteWordsCoherence, validateMultiChoiceCoherence } from "../validators/coherenceValidator.js";
+import { validateOrderSentencePedagogy, validateCompleteWordsPedagogy, validateMultiChoicePedagogy } from "../validators/pedagogicalValidator.js";
+import { regenerateExerciseWithFeedback } from "./exerciseRegenerator.js";
+import { getFallbackExercise, adaptFallbackToStory } from "../../data/fallbackExercises.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -120,7 +126,7 @@ export class LangChainOrchestrator {
     const wordCount = getWordRangeForLevel(request.level);
     const gameTypes = levelConfig.gameTypes.join(", ");
     const { minLength, maxLength } = this.getWritingLengthForLevel(request.level);
-    const exercisesTemplate = buildExercisesTemplate(levelConfig.gameTypes, minLength, maxLength);
+    const exercisesTemplate = buildEnhancedExercisesTemplate(levelConfig.gameTypes, request.level, minLength, maxLength);
 
     const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
 
@@ -142,7 +148,25 @@ export class LangChainOrchestrator {
         throw new Error("Generated content failed safety checks");
       }
 
-      return result;
+      // PIPELINE DE CALIDAD PEDAGÓGICA
+      console.log('[LangChain] Iniciando validación pedagógica de ejercicios...');
+      
+      // Analizar texto de la historia
+      const textAnalysis = analyzeText(storyText);
+      console.log(`[LangChain] Texto analizado: ${textAnalysis.sentenceCount} oraciones, ${textAnalysis.averageWords} palabras promedio`);
+      
+      // Validar y regenerar ejercicios si es necesario
+      const validatedExercises = await this.validateAndRegenerateExercises(
+        result.exercises,
+        storyText,
+        request.level,
+        result.story.title
+      );
+      
+      return {
+        story: result.story,
+        exercises: validatedExercises
+      };
     } catch (error) {
       console.error("Error generating story with exercises:", error);
       throw new Error("Failed to generate educational content");
@@ -405,6 +429,195 @@ export class LangChainOrchestrator {
         correctedText: text,
       };
     }
+  }
+
+  /**
+   * Pipeline de validación y regeneración de ejercicios
+   * Aplica validación triple: gramática → coherencia → pedagogía
+   * Regenera con feedback si falla, usa respaldo si todo falla
+   */
+  private async validateAndRegenerateExercises(
+    exercises: any[],
+    storyText: string,
+    level: number,
+    storyTitle: string
+  ): Promise<GameSpec[]> {
+    const validatedExercises: GameSpec[] = [];
+    
+    for (const exercise of exercises) {
+      const gameType = exercise.gameType;
+      console.log(`[Validación] Validando ejercicio: ${gameType}`);
+      
+      // Validar según tipo
+      const validationResult = await this.validateSingleExercise(
+        exercise,
+        storyText,
+        level
+      );
+      
+      if (validationResult.isValid && validationResult.score >= 70) {
+        console.log(`[Validación] ✅ Ejercicio ${gameType} aprobado (score: ${validationResult.score})`);
+        validatedExercises.push(exercise);
+      } else {
+        console.log(`[Validación] ❌ Ejercicio ${gameType} falló (score: ${validationResult.score})`);
+        console.log(`[Validación] Errores: ${JSON.stringify(validationResult.errors)}`);
+        
+        // Intentar regenerar
+        const regenerationResult = await regenerateExerciseWithFeedback({
+          gameType,
+          level,
+          storyText,
+          previousAttempt: exercise,
+          validationErrors: validationResult.errors
+        });
+        
+        if (regenerationResult.success && regenerationResult.finalScore >= 70) {
+          console.log(`[Validación] ✅ Ejercicio regenerado exitosamente (intentos: ${regenerationResult.attempts}, score: ${regenerationResult.finalScore})`);
+          validatedExercises.push(regenerationResult.exercise);
+        } else {
+          console.log(`[Validación] ⚠️  Regeneración falló, usando ejercicio de respaldo`);
+          
+          // Usar ejercicio de respaldo
+          const fallback = getFallbackExercise(level, gameType);
+          if (fallback) {
+            const adapted = adaptFallbackToStory(fallback, storyTitle);
+            validatedExercises.push(adapted as GameSpec);
+            console.log(`[Validación] ✅ Ejercicio de respaldo usado para ${gameType}`);
+          } else {
+            console.log(`[Validación] ⚠️  No hay ejercicio de respaldo para ${gameType} nivel ${level}`);
+            // Como último recurso, usar el ejercicio original
+            validatedExercises.push(exercise);
+          }
+        }
+      }
+    }
+    
+    return validatedExercises;
+  }
+
+  /**
+   * Valida un ejercicio individual aplicando las tres capas
+   */
+  private async validateSingleExercise(
+    exercise: any,
+    storyText: string,
+    level: number
+  ): Promise<{
+    isValid: boolean;
+    score: number;
+    errors: {
+      grammar: string[];
+      coherence: string[];
+      pedagogical: string[];
+    };
+  }> {
+    const errors = {
+      grammar: [] as string[],
+      coherence: [] as string[],
+      pedagogical: [] as string[]
+    };
+
+    let grammarScore = 0;
+    let coherenceScore = 0;
+    let pedagogyScore = 0;
+
+    const payload = exercise.exercise?.payload || exercise.payload;
+    
+    if (exercise.gameType === 'order_sentence') {
+      const grammarResult = validateOrderSentence(
+        payload.words,
+        payload.correct
+      );
+      const coherenceResult = validateOrderSentenceCoherence(
+        payload.words,
+        payload.correct,
+        storyText
+      );
+      const pedagogyResult = validateOrderSentencePedagogy(
+        payload.words,
+        payload.correct,
+        level
+      );
+
+      errors.grammar = grammarResult.errors;
+      errors.coherence = coherenceResult.errors;
+      errors.pedagogical = pedagogyResult.misalignment;
+      
+      grammarScore = grammarResult.score;
+      coherenceScore = coherenceResult.score;
+      pedagogyScore = pedagogyResult.score;
+    } 
+    else if (exercise.gameType === 'complete_words') {
+      const grammarResult = validateCompleteWords(
+        payload.sentence,
+        payload.correct
+      );
+      const coherenceResult = validateCompleteWordsCoherence(
+        payload.sentence,
+        payload.correct,
+        storyText
+      );
+      const pedagogyResult = validateCompleteWordsPedagogy(
+        payload.sentence,
+        payload.correct,
+        level
+      );
+
+      errors.grammar = grammarResult.errors;
+      errors.coherence = coherenceResult.errors;
+      errors.pedagogical = pedagogyResult.misalignment;
+      
+      grammarScore = grammarResult.score;
+      coherenceScore = coherenceResult.score;
+      pedagogyScore = pedagogyResult.score;
+    }
+    else if (exercise.gameType === 'multi_choice') {
+      const grammarResult = validateMultiChoice(
+        payload.question,
+        payload.choices,
+        payload.correctIndex
+      );
+      const coherenceResult = validateMultiChoiceCoherence(
+        payload.question,
+        payload.choices,
+        payload.correctIndex,
+        storyText
+      );
+      const pedagogyResult = validateMultiChoicePedagogy(
+        payload.question,
+        payload.choices,
+        payload.correctIndex,
+        level,
+        storyText
+      );
+
+      errors.grammar = grammarResult.errors;
+      errors.coherence = coherenceResult.errors;
+      errors.pedagogical = pedagogyResult.misalignment;
+      
+      grammarScore = grammarResult.score;
+      coherenceScore = coherenceResult.score;
+      pedagogyScore = pedagogyResult.score;
+    } else {
+      // Para otros tipos, considerar válido por defecto
+      return {
+        isValid: true,
+        score: 80,
+        errors: {
+          grammar: [],
+          coherence: [],
+          pedagogical: []
+        }
+      };
+    }
+
+    // Calcular score promedio
+    const avgScore = (grammarScore + coherenceScore + pedagogyScore) / 3;
+    const isValid = avgScore >= 70 && 
+                    errors.grammar.length === 0 && 
+                    errors.coherence.length === 0;
+
+    return { isValid, score: avgScore, errors };
   }
 }
 
