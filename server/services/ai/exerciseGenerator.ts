@@ -1,5 +1,5 @@
 import { langchainService } from "./langchainService";
-import { db } from "@/lib/db";
+import { db } from "../../lib/db.js";
 import { exercises, stories, insertExerciseSchema } from "@shared/schema";
 import { GameSpec, AIMetadata } from "@shared/types";
 import { eq } from "drizzle-orm";

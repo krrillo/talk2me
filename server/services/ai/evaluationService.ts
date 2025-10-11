@@ -1,5 +1,5 @@
 import { langchainService } from "./langchainService";
-import { db } from "@/lib/db";
+import { db } from "../../lib/db.js";
 import { progress, exercises, users, insertProgressSchema } from "@shared/schema";
 import { EvaluateAnswerRequest, EvaluationResponse, ExerciseResult } from "@shared/types";
 import { eq, and, desc } from "drizzle-orm";

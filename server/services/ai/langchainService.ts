@@ -197,7 +197,9 @@ export class LangChainOrchestrator {
 
   async generateImage(prompt: string, style: string = "flat-illustration"): Promise<string> {
     try {
-      const enhancedPrompt = `${prompt}. Style: ${style}, child-friendly, colorful, safe content, no text, educational illustration for Spanish learning, accessible high contrast colors`;
+      const enhancedPrompt = `${prompt}. Style: ${style}, child-friendly, colorful, safe content, no text embedded in image, educational illustration for Spanish learning for children with hearing difficulties, accessible high contrast colors, simple clear composition, vibrant but not overwhelming`;
+
+      console.log(`Generating DALL-E image with prompt: ${enhancedPrompt.substring(0, 100)}...`);
 
       const response = await openai.images.generate({
         model: "dall-e-3",
@@ -207,10 +209,17 @@ export class LangChainOrchestrator {
         quality: "standard",
       });
 
-      return response.data[0].url || "";
+      const imageUrl = response.data[0].url;
+      if (!imageUrl) {
+        throw new Error("No image URL returned from DALL-E");
+      }
+
+      console.log(`Successfully generated image: ${imageUrl.substring(0, 50)}...`);
+      return imageUrl;
     } catch (error) {
-      console.error("Error generating image:", error);
-      throw new Error("Failed to generate illustration");
+      console.error("Error generating image with DALL-E:", error);
+      // Don't throw - return empty string to allow story generation to continue without images
+      return "";
     }
   }
 

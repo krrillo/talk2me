@@ -1,8 +1,9 @@
 import { langchainService } from "./langchainService";
-import { db } from "@/lib/db";
+import { db } from "../../lib/db.js";
 import { stories, assets, insertStorySchema, insertAssetSchema } from "@shared/schema";
 import { StoryGenerateRequest, Theme, AIMetadata } from "@shared/types";
 import { validateContentSafety, validateGrammarLevel } from "@shared/validation";
+import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
 
 export class StoryGeneratorService {

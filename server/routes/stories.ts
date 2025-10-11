@@ -4,38 +4,48 @@ import { CreateStoryRequestSchema } from "@shared/validation";
 import { createSuccessResponse, createErrorResponse } from "@shared/validation";
 import { storyGeneratorService } from "../services/ai/storyGenerator";
 import { exerciseGeneratorService } from "../services/ai/exerciseGenerator";
+import { multimodalWorkflow } from "../services/ai/langgraphWorkflow.js";
 
 const router = express.Router();
 
 // Apply rate limiting to story generation (expensive operation)
 router.use('/generate', rateLimit(5, 60000)); // 5 requests per minute
 
-// Generate new story
+// Generate new story using LangGraph multimodal workflow
 router.post('/generate', 
   requireAuth, 
   validateBody(CreateStoryRequestSchema), 
   async (req: AuthRequest, res) => {
     try {
-      const { theme, level, locale, constraints } = req.body;
+      const { theme, level } = req.body;
+      const userId = req.user?.id;
 
-      console.log(`Generating story for user ${req.user?.username}: ${theme}, level ${level}`);
+      if (!userId) {
+        return res.status(401).json(createErrorResponse('User not authenticated'));
+      }
 
-      // Generate story
-      const story = await storyGeneratorService.generateStory({
-        theme,
-        level,
-        locale: locale || 'es-ES',
-        constraints,
-      });
+      console.log(`[Route] Starting multimodal workflow for user ${req.user?.username}: theme=${theme}, level=${level}`);
 
-      // Generate exercises for the story
-      const exercises = await exerciseGeneratorService.generateExercisesForStory(story.storyId);
+      // Execute the complete LangGraph workflow:
+      // 1. Generate story with GPT-4
+      // 2. Generate images with DALL-E 3
+      // 3. Save story to DB
+      // 4. Generate exercises
+      // 5. Save assets
+      const workflowResult = await multimodalWorkflow.executeWorkflow(userId, level, theme);
+
+      console.log(`[Route] Workflow completed:`, workflowResult);
+
+      // Fetch the complete story with exercises
+      const story = await storyGeneratorService.getStoryById(workflowResult.storyId.toString());
+      const exercises = await exerciseGeneratorService.getExercisesByStoryId(workflowResult.storyId.toString());
 
       res.json(createSuccessResponse({
-        storyId: story.storyId,
-        title: story.title,
-        level: story.level,
-        theme: story.theme,
+        storyId: workflowResult.storyId,
+        title: story?.title,
+        level: story?.level,
+        theme: story?.theme,
+        imageCount: workflowResult.imageCount,
         exercises: exercises.map(ex => ({
           id: ex.id,
           gameType: ex.gameType,
@@ -44,7 +54,7 @@ router.post('/generate',
       }));
 
     } catch (error) {
-      console.error('Story generation error:', error);
+      console.error('[Route] Story generation error:', error);
       res.status(500).json(createErrorResponse(
         'Failed to generate story',
         error instanceof Error ? error.message : 'Unknown error'

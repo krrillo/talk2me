@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db } from "../../lib/db.js";
 import { users, insertUserSchema } from "@shared/schema";
 import { InsertUser, User } from "@shared/schema";
 import crypto from "crypto";

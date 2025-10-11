@@ -1,7 +1,7 @@
 import express from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { createSuccessResponse, createErrorResponse } from "@shared/validation";
-import { db } from "@/lib/db";
+import { db } from "../lib/db.js";
 import { progress, dailyProgress, users, stories, exercises } from "@shared/schema";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { evaluationService } from "../services/ai/evaluationService";
