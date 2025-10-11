@@ -3,8 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { GameSpec } from "@/lib/types";
-import { DndProvider, useDrag, useDrop } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
+import { useDrag, useDrop } from "react-dnd";
 import gsap from "gsap";
 import { StoryContext } from "./StoryContext";
 
@@ -151,13 +150,6 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
         }
         
         setShowFeedback(true);
-        
-        // Ocultar feedback después de 3 segundos para permitir reintento
-        if (currentAttempt < 2) {
-          setTimeout(() => {
-            setShowFeedback(false);
-          }, 3000);
-        }
       }
     }
   };
@@ -177,10 +169,9 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
   const getCurrentSentence = () => words.join(' ');
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div ref={gameRef} className="max-w-4xl mx-auto">
-        <Card className="overflow-hidden">
-          <CardContent className="p-8">
+    <div ref={gameRef} className="max-w-4xl mx-auto">
+      <Card className="overflow-hidden">
+        <CardContent className="p-8">
             {/* Instructions */}
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold mb-2">Ordena las palabras</h2>
@@ -268,7 +259,6 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
           </CardContent>
         </Card>
       </div>
-    </DndProvider>
   );
 }
 

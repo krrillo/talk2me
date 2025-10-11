@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import DragWordsGame from "./DragWordsGame";
 import OrderSentenceGame from "./OrderSentenceGame";
 import CompleteWordsGame from "./CompleteWordsGame";
@@ -84,7 +86,11 @@ export default function GameHost() {
       case "drag_words":
         return <DragWordsGame spec={currentGame} onComplete={handleGameComplete} />;
       case "order_sentence":
-        return <OrderSentenceGame spec={currentGame} onComplete={handleGameComplete} />;
+        return (
+          <DndProvider backend={HTML5Backend}>
+            <OrderSentenceGame spec={currentGame} onComplete={handleGameComplete} />
+          </DndProvider>
+        );
       case "complete_words":
         return <CompleteWordsGame spec={currentGame} onComplete={handleGameComplete} />;
       case "multi_choice":
