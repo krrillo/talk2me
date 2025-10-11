@@ -70,6 +70,8 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
   const [words, setWords] = useState<string[]>([]);
   const [attempts, setAttempts] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const gameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,6 +91,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
   };
 
   const handleCheck = () => {
+    const currentAttempt = attempts; // Capturar el valor antes de incrementar
     setAttempts(prev => prev + 1);
     const userSentence = words.join(' ');
     const correctSentence = spec.exercise?.payload?.correct || '';
@@ -107,7 +110,7 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
         
         setTimeout(() => {
           setShowResult(true);
-          onComplete({ correct: true, score: Math.max(100 - (attempts * 15), 30) });
+          onComplete({ correct: true, score: Math.max(100 - (currentAttempt * 20), 20) });
         }, 1500);
       } else {
         gsap.to(gameRef.current, {
@@ -117,13 +120,42 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
           repeat: 6,
           ease: "power2.inOut"
         });
-        toast.error(`Intenta de nuevo. La oración correcta es: ${correctSentence}`);
         
-        if (attempts >= 2) {
+        // Retroalimentación progresiva según intentos (usando currentAttempt)
+        const hints = spec.exercise?.payload?.hints || [];
+        const explanation = spec.exercise?.payload?.explanation;
+        
+        if (currentAttempt === 0 && hints[0]) {
+          // Primer intento: pista sutil
+          setFeedbackMessage(`💡 Pista: ${hints[0]}`);
+          toast.info("¡Inténtalo de nuevo!");
+        } else if (currentAttempt === 1 && hints[1]) {
+          // Segundo intento: pista más específica
+          setFeedbackMessage(`💡 Pista: ${hints[1]}`);
+          toast.info("¡Casi! Piensa un poco más...");
+        } else if (currentAttempt >= 2) {
+          // Tercer intento: mostrar explicación completa
+          setFeedbackMessage(
+            explanation 
+              ? `✨ ${explanation}\n\n✅ La oración correcta es: "${correctSentence}"`
+              : `✅ La oración correcta es: "${correctSentence}"`
+          );
+          toast.warning("Te mostramos la respuesta");
+          
+          // Después de 3 intentos, completar con puntuación mínima
           setTimeout(() => {
             setShowResult(true);
-            onComplete({ correct: false, score: 10 });
-          }, 2500);
+            onComplete({ correct: false, score: 40 });
+          }, 4000);
+        }
+        
+        setShowFeedback(true);
+        
+        // Ocultar feedback después de 3 segundos para permitir reintento
+        if (currentAttempt < 2) {
+          setTimeout(() => {
+            setShowFeedback(false);
+          }, 3000);
         }
       }
     }
@@ -213,19 +245,29 @@ function OrderSentenceGame({ spec, onComplete }: OrderSentenceGameProps) {
               </Button>
             </div>
 
-            {/* Attempts Counter */}
-            <div className="text-center text-sm text-gray-500">
-              Intento: {attempts + 1} de 3
-            </div>
-
-            {/* Hint */}
-            {attempts > 0 && attempts < 3 && (
-              <div className="mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
-                <p className="text-sm text-yellow-700">
-                  💡 Pista: Recuerda el orden típico en español: sujeto + verbo + complemento
-                </p>
+            {/* Feedback Card */}
+            {showFeedback && feedbackMessage && (
+              <div className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl animate-pulse">
+                <div className="flex items-start gap-4">
+                  <div className="text-4xl">
+                    {attempts === 1 ? "💡" : attempts === 2 ? "🤔" : "✨"}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      {attempts === 1 ? "Pista" : attempts === 2 ? "Otra pista" : "Explicación"}
+                    </h3>
+                    <p className="text-gray-800 text-base leading-relaxed whitespace-pre-line">
+                      {feedbackMessage}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Attempts Counter */}
+            <div className="text-center text-sm text-gray-500">
+              Intento: {attempts + 1}
+            </div>
           </CardContent>
         </Card>
       </div>
