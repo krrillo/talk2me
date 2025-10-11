@@ -109,9 +109,9 @@ export class LangChainOrchestrator {
       {gameTypes}
 
       EXERCISE TYPE GUIDELINES:
-      - drag_words: Extract a sentence from the story, replace ONE word with ___, provide 3 options (1 correct, 2 wrong)
+      - drag_words: Extract a sentence from the story, replace ONE word with ___ (NO SPACES around ___), provide 3 options (1 correct, 2 wrong)
       - order_sentence: Provide 6-8 words from the story that need to be arranged into a correct sentence
-      - complete_words: Extract ONE sentence, replace ONE word with ___ (exactly 3 underscores), provide the missing word as "correct"
+      - complete_words: Extract ONE sentence, replace ONE word with ___ (CRITICAL: use exactly 3 underscores WITHOUT SPACES - example: "Pedro___rápido" NOT "Pedro ___ rápido"), provide the missing word as "correct"
       - multi_choice: Create a comprehension question with 4 choices about the story
       - free_writing: Open-ended question that requires written response (minLength-maxLength words)
 

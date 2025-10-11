@@ -12,7 +12,7 @@ export const EXERCISE_TEMPLATES: Record<string, string> = {
       "exercise": {{
         "type": "drag_words",
         "payload": {{
-          "sentence": "[Extract a sentence from the story and replace ONE key word with ___ . The missing word should test the grammar focus for this level: {grammarFocus}]",
+          "sentence": "[Extract a sentence from the story and replace ONE key word with ___ (WITHOUT SPACES - example: 'palabra___palabra' NOT 'palabra ___ palabra'). The missing word should test the grammar focus for this level: {grammarFocus}]",
           "options": ["[correct word]", "[incorrect option 1 - similar but wrong]", "[incorrect option 2 - plausible distractor]"],
           "correct": "[the correct word that fills the blank]",
           "explanation": "[Explain why this answer is correct based on grammar rules for level {level}]",
@@ -43,7 +43,7 @@ export const EXERCISE_TEMPLATES: Record<string, string> = {
       "exercise": {{
         "type": "complete_words",
         "payload": {{
-          "sentence": "[Extract ONE sentence from the story and replace ONE key word with ___ (three underscores). Format example: 'El gato ___ muy rápido'. The missing word should test grammar focus for level {level}: {grammarFocus}]",
+          "sentence": "[Extract ONE sentence from the story and replace ONE key word with ___ (three underscores WITHOUT SPACES). Format example: 'El gato___muy rápido' NOT 'El gato ___ muy rápido'. The missing word should test grammar focus for level {level}: {grammarFocus}]",
           "correct": "[the single word that fills the blank - just the word, no punctuation]",
           "explanation": "[Explain why this word is correct based on grammar rules for level {level}]",
           "hints": ["[Subtle hint about grammar rule or word type]", "[More specific hint about context]"]
