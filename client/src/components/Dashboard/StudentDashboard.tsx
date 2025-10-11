@@ -8,6 +8,7 @@ import ProgressChart from "./ProgressChart";
 import { useAuthStore } from "@/lib/stores/useAuthStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { useProgressSummary, useAdaptiveRecommendations } from "@/hooks/useAdaptiveProgress";
 import { 
   BookOpen, 
   Trophy, 
@@ -44,11 +45,9 @@ export default function StudentDashboard() {
   const queryClient = useQueryClient();
   const [selectedLevel, setSelectedLevel] = useState(1);
 
-  // Fetch user progress
-  const { data: progress } = useQuery<UserProgress>({
-    queryKey: ['/api/progress'],
-    staleTime: 30000,
-  });
+  // Fetch user progress using new hooks
+  const { data: progress, isLoading: progressLoading } = useProgressSummary();
+  const { data: adaptiveRec } = useAdaptiveRecommendations();
 
   // Fetch available stories
   const { data: stories, isLoading: storiesLoading } = useQuery<Story[]>({

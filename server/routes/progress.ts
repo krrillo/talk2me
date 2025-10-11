@@ -43,7 +43,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
       .orderBy(desc(sql`date(${progress.completedAt})`))
       .limit(30);
 
-    const streakDays = this.calculateStreak(streakQuery.map(r => r.date));
+    const streakDays = calculateStreak(streakQuery.map(r => r.date));
 
     // Get user badges
     const badges = await authService.calculateUserBadges(userId);
@@ -90,7 +90,7 @@ router.get('/weekly', requireAuth, async (req: AuthRequest, res) => {
       .orderBy(sql`date(${progress.completedAt})`);
 
     // Fill in missing days with zeros
-    const filledData = this.fillMissingDays(weeklyData, daysBack);
+    const filledData = fillMissingDays(weeklyData, daysBack);
 
     res.json(createSuccessResponse(filledData));
 
@@ -190,6 +190,53 @@ router.post('/submit', requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// Get adaptive recommendations
+router.get('/adaptive', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+
+    // Get recent performance history
+    const recentProgress = await db
+      .select()
+      .from(progress)
+      .where(eq(progress.userId, userId))
+      .orderBy(desc(progress.completedAt))
+      .limit(20);
+
+    // Get user's current level
+    const user = await authService.getUserById(userId);
+    if (!user) {
+      return res.status(404).json(createErrorResponse('User not found'));
+    }
+
+    // Use evaluation service to generate adaptive recommendations
+    const analysis = await evaluationService.getUserPerformanceAnalysis(userId);
+
+    // TODO: Implement LangChain adaptive content generation
+    // For now, return basic recommendations based on performance
+    const recommendedLevel = user.level;
+    const focusAreas = analysis.weakAreas || [];
+    const nextExercises = ['drag_words', 'order_sentence', 'complete_words'];
+
+    res.json(createSuccessResponse({
+      recommendedLevel,
+      focusAreas,
+      nextExercises,
+      currentLevel: user.level,
+      performanceSummary: {
+        averageScore: analysis.averageScore,
+        recentTrend: analysis.recentTrend,
+        strongAreas: analysis.strongAreas,
+        weakAreas: analysis.weakAreas,
+      },
+    }));
+
+  } catch (error) {
+    console.error('Get adaptive recommendations error:', error);
+    res.status(500).json(createErrorResponse('Failed to get adaptive recommendations'));
+  }
+});
+
 // Get progress by date range
 router.get('/range', requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -207,8 +254,8 @@ router.get('/range', requireAuth, async (req: AuthRequest, res) => {
       .where(
         and(
           eq(progress.userId, userId),
-          gte(progress.completedAt, new Date(startDate)),
-          gte(new Date(endDate), progress.completedAt)
+          gte(progress.completedAt, sql`${startDate}::timestamp`),
+          sql`${progress.completedAt} <= ${endDate}::timestamp`
         )
       )
       .orderBy(progress.completedAt);
