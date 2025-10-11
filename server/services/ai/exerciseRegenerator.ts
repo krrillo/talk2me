@@ -94,6 +94,7 @@ export async function regenerateExerciseWithFeedback(
       3. Asegúrate de que la oración sea gramaticalmente correcta
       4. Verifica alineación con objetivos pedagógicos del nivel {level}
       5. Sigue las reglas gramaticales del español
+      6. FORMATO CRÍTICO para complete_words: Usa ___ (tres guiones bajos) SIN ESPACIOS alrededor. Ejemplo CORRECTO: "El gato___rápido" NO "El gato ___ rápido"
       
       Genera un ejercicio corregido en JSON siguiendo estas reglas ESTRICTAMENTE.
       
@@ -298,7 +299,7 @@ function getOutputFormat(gameType: string): string {
         "exercise": {
           "type": "complete_words",
           "payload": {
-            "sentence": "Oración del texto con ___",
+            "sentence": "Oración del texto con___ (IMPORTANTE: sin espacios alrededor de ___, ejemplo: palabra___palabra)",
             "correct": "palabra_faltante",
             "explanation": "Por qué es correcta",
             "hints": ["Pista 1", "Pista 2"]

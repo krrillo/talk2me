@@ -39,7 +39,7 @@ export const FALLBACK_EXERCISES_BY_LEVEL: Record<number, Record<string, Fallback
       exercise: {
         type: "complete_words",
         payload: {
-          sentence: "El perro ___ grande.",
+          sentence: "El perro___grande.",
           correct: "es",
           explanation: "Usamos 'es' del verbo SER para describir características permanentes",
           hints: ["Verbo que describe cómo es algo", "Empieza con 'e'"]
@@ -84,7 +84,7 @@ export const FALLBACK_EXERCISES_BY_LEVEL: Record<number, Record<string, Fallback
       exercise: {
         type: "complete_words",
         payload: {
-          sentence: "Un perro ___ ladra fuerte.",
+          sentence: "Un perro___ladra fuerte.",
           correct: "grande",
           explanation: "El adjetivo 'grande' describe el tamaño del perro y va antes del verbo",
           hints: ["Es un adjetivo que describe tamaño", "Va entre 'perro' y 'ladra'"]
@@ -129,7 +129,7 @@ export const FALLBACK_EXERCISES_BY_LEVEL: Record<number, Record<string, Fallback
       exercise: {
         type: "complete_words",
         payload: {
-          sentence: "Ana lee ___ escribe bien.",
+          sentence: "Ana lee___escribe bien.",
           correct: "y",
           explanation: "El conector 'y' une dos acciones que realiza Ana: leer y escribir",
           hints: ["Conector que une dos acciones", "Es una letra"]
@@ -174,7 +174,7 @@ export const FALLBACK_EXERCISES_BY_LEVEL: Record<number, Record<string, Fallback
       exercise: {
         type: "complete_words",
         payload: {
-          sentence: "Las flores ___ bonitas.",
+          sentence: "Las flores___bonitas.",
           correct: "están",
           explanation: "El verbo 'están' (plural) concuerda con 'Las flores' (plural femenino)",
           hints: ["Verbo SER o ESTAR en plural", "Describe estado actual"]
@@ -219,7 +219,7 @@ export const FALLBACK_EXERCISES_BY_LEVEL: Record<number, Record<string, Fallback
       exercise: {
         type: "complete_words",
         payload: {
-          sentence: "El niño ___ lee es inteligente.",
+          sentence: "El niño___lee es inteligente.",
           correct: "que",
           explanation: "El pronombre relativo 'que' introduce una subordinada que describe al niño",
           hints: ["Palabra que introduce información adicional", "Pronombre relativo"]
