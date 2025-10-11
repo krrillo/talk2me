@@ -359,17 +359,51 @@ export default function StoryViewer() {
                   </div>
                 )}
 
-                {/* Reading Progress */}
+                {/* Enhanced Reading Progress */}
                 <div className="mt-6">
-                  <div className="bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${((currentPage + 1) / totalPages) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2 text-center">
-                    Progreso de lectura: {Math.round(((currentPage + 1) / totalPages) * 100)}%
-                  </p>
+                  {(() => {
+                    const totalWords = story.pages.reduce((acc, page) => acc + page.text.split(' ').length, 0);
+                    const wordsRead = story.pages.slice(0, currentPage + 1).reduce((acc, page) => acc + page.text.split(' ').length, 0);
+                    const wordsPerMinute = 100;
+                    const estimatedMinutes = Math.ceil(totalWords / wordsPerMinute);
+                    const minutesRemaining = Math.ceil((totalWords - wordsRead) / wordsPerMinute);
+                    const progressPercent = Math.round(((currentPage + 1) / totalPages) * 100);
+                    
+                    return (
+                      <>
+                        {/* Progress Bar */}
+                        <div className="bg-gray-200 rounded-full h-3 mb-3 relative">
+                          <div 
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-900">
+                            {progressPercent}%
+                          </span>
+                        </div>
+                        
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-2 bg-blue-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-700">{wordsRead}</div>
+                            <div className="text-xs text-gray-900 font-semibold">Palabras leídas</div>
+                          </div>
+                          <div className="p-2 bg-purple-50 rounded-lg">
+                            <div className="text-2xl font-bold text-purple-700">{totalWords}</div>
+                            <div className="text-xs text-gray-900 font-semibold">Palabras totales</div>
+                          </div>
+                          <div className="p-2 bg-green-50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-700">~{minutesRemaining}</div>
+                            <div className="text-xs text-gray-900 font-semibold">min restantes</div>
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-gray-900 font-medium mt-2 text-center">
+                          📖 Tiempo estimado total: ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minuto' : 'minutos'}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
