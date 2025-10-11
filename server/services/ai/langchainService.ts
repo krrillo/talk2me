@@ -6,7 +6,6 @@ import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { StoryGenerateRequest, GameSpec, EvaluationResponse, Theme, Level } from "@shared/types";
 import { validateContentSafety } from "@shared/validation";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class LangChainOrchestrator {
@@ -14,12 +13,11 @@ export class LangChainOrchestrator {
   private parser: JsonOutputParser;
 
   constructor() {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
     this.llm = new ChatOpenAI({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       openAIApiKey: process.env.OPENAI_API_KEY,
-      maxTokens: undefined, // gpt-5 doesn't support max_tokens, use max_completion_tokens instead
-      temperature: undefined, // gpt-5 doesn't support temperature parameter
+      maxTokens: 4000,
+      temperature: 0.7,
     });
     
     this.parser = new JsonOutputParser();
