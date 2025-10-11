@@ -1,0 +1,613 @@
+# 🦋 HablaConmigo – Especificación técnica completa (Serverless + Strands + IA Multimodal)
+
+> **Objetivo**: Documentar una arquitectura **serverless** con **AWS Lambda + API Gateway**, orquestación de IA en **Strands Framework**, frontend **React** con experiencia **premium** (animaciones/juegos), y generación de **assets multimodales** (DALL·E). Este documento sirve como guía para un **asistente de IA generador de código (GPT‑5)** y como base de la documentación del bootcamp.
+
+---
+
+## 1) Visión y Alcance
+
+- **Producto**: App inclusiva para niños (6–12) con hipoacusia leve/moderada, enfocada en comprensión lectora, gramática y redacción.
+- **MVP**: Historias interactivas + micro‑juegos (arrastrar/soltar, ordenar oraciones, completar) + feedback textual/visual + panel básico de progreso.
+- **Principios**: Accesibilidad AA/AAA, latencia baja, costos bajos, privacidad infantil (datos mínimos), contenido seguro.
+
+---
+
+## 2) Arquitectura (alto nivel)
+
+```
+[ React (Vite/Next) + Tailwind + Framer Motion/GSAP + Phaser.js/PixiJS ]
+                         | (Cognito JWT)
+                     [ Amazon CloudFront ]
+                         |
+                    [ Amazon S3 (static) ]
+                         |
+                      [ API Gateway ]  <— CORS + JWT + Throttling
+                         |
+                 ┌───────┴────────────────────────────────┐
+                 |                                        |
+           [ Lambda: api-* ]                        [ Lambda: jobs-* ]
+                 |                                        |
+           [ Strands Runtime ] — orquestación LLMs/agents  |
+                 |                                         |
+       ┌─────────┴─────────┐                      ┌────────┴────────┐
+ [ Models (Bedrock/GPT-4o) ]                [ DALL·E image pipeline ]
+       |                                                  |
+[DynamoDB] — usuarios, progreso, historias, ejercicios    |  [S3 Assets bucket]
+[S3] — imágenes, sprites, prompts, plantillas             |  versions + CDN
+[EventBridge] — eventos dominio (p.ej. session.completed)
+[CloudWatch/X-Ray] — logs, trazas; [OpenSearch opcional]
+```
+
+**Decisiones clave**
+- **Serverless first**: Lambda + API GW + DynamoDB + S3.
+- **IA en backend (Strands)**: toda la lógica generativa vive en Strands; el frontend **nunca** llama directo a modelos.
+- **Assets generados**: DALL·E se usa para crear ilustraciones y sprites estilizados. Se versiona en S3 con metadatos.
+
+---
+
+## 3) Repos y Estructura del Monorepo
+
+```
+repo/
+  frontend/
+    src/
+      app/ (ruteo)
+      components/
+      games/ (phaser/pixi scenes, game adapters)
+      hooks/
+      state/ (zustand/redux)
+      styles/
+      utils/
+    public/
+    vite.config.ts (o next.config.mjs)
+  backend/
+    api/
+      handlers/ (lambda functions: stories, games, evaluate, progress, assets)
+      strands/ (flows, agents, tools)
+      lib/ (auth, errors, dto, validation)
+      openapi/ (openapi.yaml)
+    infra/
+      terraform/ (o SAM/Serverless Framework)
+      scripts/
+  docs/
+    adr/ (Architecture Decision Records)
+    product/
+    runbooks/
+```
+
+---
+
+## 4) Modelo de Datos (DynamoDB)
+
+### Tablas
+- **Users** (PK: `userId`) – perfil, roles (child/parent/therapist), nivel, preferencias.
+- **Sessions** (PK: `userId`, SK: `sessionId`) – contexto, timestamps, configuración IA.
+- **Stories** (PK: `storyId`) – título, texto, nivel, tema, assets (S3 keys), provenance (prompt, model, version).
+- **Exercises** (PK: `exerciseId`, GSI: `storyId`) – tipo, payload, solución, nivel.
+- **Progress** (PK: `userId`, SK: `progressId`, GSI: `storyId`) – respuestas, score, tiempo, feedback.
+- **Assets** (PK: `assetId`) – tipo (`image|sprite|spriteSheet`), estilo, s3Key, checksum, tags.
+
+### Ejemplos de ítems
+```json
+{
+  "storyId": "sto_2025-10-11_001",
+  "title": "El perrito curioso",
+  "theme": "animals_park",
+  "level": 2,
+  "text": "El perrito corre por el parque y encuentra una pelota roja...",
+  "assets": [
+    { "type": "image", "s3Key": "assets/stories/sto_001/cover.png", "style": "flat-illustration" },
+    { "type": "spriteSheet", "s3Key": "assets/stories/sto_001/dog.json" }
+  ],
+  "provenance": {
+    "generator": "strands.flow.generate_story",
+    "model": "gpt-4o",
+    "prompt_hash": "sha256:...",
+    "version": 3
+  }
+}
+```
+
+---
+
+## 5) API (OpenAPI – resumen)
+
+### Seguridad
+- **JWT Cognito** (audience: `hablaconmigo-api`), `Authorization: Bearer <token>`.
+
+### Endpoints principales
+- `POST /v1/stories/generate` → genera historia + especificación de juego.
+- `GET /v1/stories/{storyId}` → obtiene historia por id.
+- `POST /v1/exercises/generate` → genera ejercicios a partir de historia.
+- `POST /v1/evaluate` → evalúa respuesta del niño (texto/selección) y retorna feedback.
+- `POST /v1/progress` → registra resultado de ejercicio.
+- `GET /v1/progress/{userId}` → resumen de progreso.
+- `POST /v1/assets/generate` → pipeline DALL·E → S3; devuelve URLs/keys.
+- `GET /v1/config/ui` → flags de features, estilos, packs de sprites disponibles.
+
+**OpenAPI sketch (fragmento)**
+```yaml
+openapi: 3.0.3
+info:
+  title: HablaConmigo API
+  version: 1.0.0
+paths:
+  /v1/stories/generate:
+    post:
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryGenerateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryWithGameSpec'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    StoryGenerateRequest:
+      type: object
+      required: [theme, level, locale]
+      properties:
+        theme: { type: string }
+        level: { type: integer, minimum: 1, maximum: 5 }
+        locale: { type: string, enum: [es-ES, es-MX, es-CO] }
+        constraints:
+          type: object
+          properties:
+            maxWords: { type: integer, default: 120 }
+            targetVocabulary: { type: array, items: { type: string } }
+    StoryWithGameSpec:
+      type: object
+      properties:
+        story: { $ref: '#/components/schemas/Story' }
+        gameSpec: { $ref: '#/components/schemas/GameSpec' }
+    Story:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        text: { type: string }
+        assets: { type: array, items: { $ref: '#/components/schemas/AssetRef' } }
+    AssetRef:
+      type: object
+      properties:
+        type: { type: string, enum: [image, sprite, spriteSheet] }
+        s3Key: { type: string }
+    GameSpec:
+      type: object
+      required: [gameType, scene, characters, exercise]
+      properties:
+        gameType: { type: string, enum: [drag_words, order_sentence, multi_choice, match_pairs] }
+        scene: { type: string }
+        characters: { type: array, items: { type: string } }
+        exercise:
+          oneOf:
+            - $ref: '#/components/schemas/DragWordsExercise'
+            - $ref: '#/components/schemas/OrderSentenceExercise'
+            - $ref: '#/components/schemas/MultiChoiceExercise'
+    DragWordsExercise:
+      type: object
+      properties:
+        sentence: { type: string }
+        options: { type: array, items: { type: string } }
+        correct: { type: string }
+```
+
+---
+
+## 6) Motor de Juegos **IA‑Driven**
+
+### 6.1 Esquema JSON canónico (frontend‑friendly)
+
+```json
+{
+  "title": "El perrito curioso",
+  "locale": "es-ES",
+  "level": 2,
+  "theme": "animals_park",
+  "visualStyle": "flat-illustration-soft",
+  "gameType": "drag_words",
+  "scene": {
+    "background": "s3://assets/bg/park_day.png",
+    "ambient": ["butterflies", "flowers"],
+    "audio": { "narration": null, "sfx": ["bell_soft", "win"] }
+  },
+  "characters": [
+    { "id": "dog", "sprite": "s3://assets/sprites/dog.json", "mood": "happy" },
+    { "id": "kid", "sprite": "s3://assets/sprites/kid.json", "mood": "curious" }
+  ],
+  "exercise": {
+    "type": "drag_words",
+    "payload": {
+      "sentence": "El ___ corre en el parque.",
+      "options": ["niño", "perrito", "pelota"],
+      "correct": "perrito"
+    }
+  },
+  "uiHints": {
+    "contrast": "high",
+    "fontScale": 1.2,
+    "animations": { "enter": "fadeInUp", "success": "bounce", "error": "shake" }
+  },
+  "telemetry": {
+    "sessionId": "sess_123",
+    "storyId": "sto_001",
+    "exerciseId": "ex_001"
+  }
+}
+```
+
+### 6.2 Adaptadores de juego (frontend)
+
+- **GameAdapter**: interfaz para mapear `gameType` → escena/juego.
+- **Scenes** (Phaser): `DragWordsScene`, `OrderSentenceScene`, `MultiChoiceScene`.
+- **Renderer** (PixiJS opcional) para optimizar sprites y partículas.
+- **Animaciones**: GSAP/Framer Motion en UI (modales, feedback) + tweens nativos de Phaser.
+
+### 6.3 Contratos de datos
+
+- **Entrada**: `GameSpec` (JSON arriba).
+- **Salida** (telemetría envuelta por frontend → API):
+
+```json
+{
+  "sessionId": "sess_123",
+  "exerciseId": "ex_001",
+  "result": {
+    "status": "success|error",
+    "answer": "perrito",
+    "latencyMs": 1840
+  }
+}
+```
+
+---
+
+## 7) Flujos **Strands** (IA en backend)
+
+> Orquestación con *steps* declarativos: validación → generación → revisión → postproceso → persistencia.
+
+### 7.1 `flow.generate_story_with_game`
+
+**Inputs**: `theme`, `level`, `locale`, `constraints` (maxWords, vocabulario objetivo)
+
+**Steps**:
+1. `validate.input` – valida schema.
+2. `llm.story` – genera micro‑historia infantil con vocabulario controlado.
+3. `llm.game_designer` – convierte historia en `GameSpec` (JSON). Prioriza ejercicios de género, número, tiempos, artículos.
+4. `postprocess.sanitize` – sanea JSON, longitudes, palabras prohibidas, contenido seguro.
+5. `persist.story_exercise` – guarda en DynamoDB (Stories/Exercises) y retorna `storyId`, `exerciseId` + `gameSpec`.
+
+**Prompt (resumen)**
+```
+Eres un diseñador pedagógico infantil. Genera una historia breve y un juego educativo para niños con hipoacusia.
+Nivel: {level}. Tema: {theme}. Idioma: {locale}.
+Limita a {constraints.maxWords} palabras. Refuerza: {constraints.targetVocabulary}.
+Devuelve SOLO JSON válido con el siguiente esquema: ... (GameSpec)
+Prohíbe violencia/temas inapropiados. Usa lenguaje claro, oraciones cortas.
+```
+
+### 7.2 `flow.evaluate_answer`
+
+**Inputs**: `exerciseId`, `userAnswer`, `context` (nivel, edad).
+
+**Steps**:
+1. `fetch.exercise` – obtener ejercicio.
+2. `llm.checker` – compara respuesta, explica con empatía.
+3. `score.compute` – asigna puntaje y tags ("artículo incorrecto", "concordancia género").
+4. `persist.progress` – guarda resultado.
+5. `feedback.render` – devuelve feedback estructurado:
+
+```json
+{
+  "correct": true,
+  "message": "¡Muy bien! 'perrito' concuerda con el verbo.",
+  "hints": ["Recuerda que 'pelota' es femenina."],
+  "nextSuggestion": "Intenta formar una oración con 'roja'."
+}
+```
+
+### 7.3 `flow.generate_assets`
+
+**Inputs**: `theme`, `visualStyle`, `characters`.
+
+**Steps**:
+1. `prompt.compose` – prompt DALL·E controlado (estilo consistente, paleta accesible, fondo simple, sin texto incrustado).
+2. `image.generate` – llama DALL·E; recibe PNG/WebP.
+3. `postprocess.resize` – genera variantes (1x, 2x, thumbnail), opcional recorte seguro (sin rasgos realistas).
+4. `persist.assets` – guarda en S3 + item en `Assets` con metadatos (checksum, style, tags).
+5. `deliver.urls` – retorna URLs firmadas o s3Keys.
+
+---
+
+## 8) Librerías visuales y pautas UI premium
+
+- **Base UI**: React + Tailwind + shadcn/ui.
+- **Animaciones UI**: Framer Motion (transiciones), GSAP (micro‑interacciones).
+- **Motor 2D**: Phaser 3 (escenas, inputs, física ligera), PixiJS (render rápido opcional).
+- **Accesibilidad**: Headless UI, `prefers-reduced-motion`, alto contraste, escalado fuente, foco visible, subtítulos.
+- **Audio**: Envía pistas opcionales con control de volumen; no bloquear experiencia si está apagado.
+- **Diseño visual**: ilustración plana, contornos suaves, paleta sobria, componentes con bordes `2xl`, sombras suaves.
+
+---
+
+## 9) Ejemplos de Integración (frontend)
+
+### 9.1 Cargar `GameSpec` y despachar escena
+```ts
+// state/gameStore.ts (zustand)
+import create from 'zustand'
+
+export const useGameStore = create((set) => ({
+  spec: null,
+  setSpec: (spec) => set({ spec })
+}))
+
+// hooks/useLoadGameSpec.ts
+export async function useLoadGameSpec(params) {
+  const res = await fetch('/api/v1/stories/generate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  })
+  const data = await res.json()
+  return data.gameSpec
+}
+
+// components/GameHost.tsx
+import { useEffect } from 'react'
+import { useGameStore } from '@/state/gameStore'
+import { DragWordsScene } from '@/games/DragWordsScene'
+
+export function GameHost() {
+  const { spec } = useGameStore()
+  if (!spec) return null
+  switch (spec.gameType) {
+    case 'drag_words': return <DragWordsScene spec={spec} />
+    case 'order_sentence': /* ... */
+    default: return null
+  }
+}
+```
+
+### 9.2 Escena base Phaser (fragmento)
+```ts
+// games/DragWordsScene.tsx
+import { useEffect, useRef } from 'react'
+import Phaser from 'phaser'
+
+export function DragWordsScene({ spec }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const game = new Phaser.Game({
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      parent: ref.current!,
+      scene: {
+        preload() {
+          this.load.image('bg', spec.scene.background)
+        },
+        create() {
+          this.add.image(400, 300, 'bg').setOrigin(0.5)
+          // Crear palabras arrastrables desde spec.exercise.payload.options...
+        }
+      }
+    })
+    return () => game.destroy(true)
+  }, [spec])
+  return <div ref={ref} className="rounded-2xl shadow-xl" />
+}
+```
+
+---
+
+## 10) Lambda Handlers (backend – sketch)
+
+```py
+# backend/api/handlers/stories_generate.py
+from dto import StoryGenerateRequest
+from strands import run_flow
+from db import save_story_exercise
+
+def handler(event, context):
+    body = json.loads(event['body'])
+    req = StoryGenerateRequest(**body)
+    result = run_flow('generate_story_with_game', req.dict())
+    save_story_exercise(result)
+    return { 'statusCode': 200, 'body': json.dumps(result) }
+```
+
+---
+
+## 11) Seguridad, Privacidad y Contenido Seguro
+
+- **Cognito** con grupos (child/parent/therapist), control de acceso por rol.
+- **PII mínima**: seudónimos para niños, sin fotos reales, consentimiento paterno.
+- **Moderación de contenido**: validadores de palabras prohibidas, clasificación de riesgo; prompts con guardrails.
+- **Rate limiting** en API GW; **idempotencia** en generadores.
+- **Cifrado**: S3 (SSE‑S3/KMS), JWT en tránsito (TLS), DynamoDB en reposo.
+
+---
+
+## 12) Infraestructura como Código (Terraform/SAM)
+
+**Módulos**
+- api_gateway, lambdas, dynamodb, s3_static, s3_assets, cognito, eventbridge, iam_roles, cloudfront.
+
+**Variables**
+- `STAGE`, `REGION`, `ASSETS_BUCKET`, `TABLE_PREFIX`, `JWT_AUDIENCE`.
+
+**CI/CD**
+- GitHub Actions: build → test → synth → deploy (dev → staging → prod).
+
+---
+
+## 13) Observabilidad y Telemetría
+
+- **CloudWatch Logs** por función.
+- **X‑Ray**: tracing end‑to‑end (API → Lambda → Strands → modelos).
+- **Business metrics** (EventBridge → Lambda sink): sesiones completadas, aciertos, tiempo en tarea.
+
+---
+
+## 14) Testing & QA
+
+- **Unit**: validación de esquemas (pydantic/zod), utils, adaptadores.
+- **Contract**: Pact (frontend ↔ backend) o Dredd (OpenAPI).
+- **E2E**: Cypress (flujo niño: lee → juega → feedback).
+- **Perf**: Artillery/K6 (picos de 50–100 RPS).
+
+---
+
+## 15) Prompts base (resumen)
+
+### 15.1 Generación de historia + juego
+```
+ROLE: Instructional Designer for Spanish language therapy for children (6–12) with hearing loss.
+TASK: Produce a micro‑story and a matching game specification that trains vocabulary, gender/number agreement, articles, and verb tenses.
+CONSTRAINTS: {level}, {locale}, max {maxWords} words, short sentences, safe/positive content.
+OUTPUT: Valid JSON following the GameSpec schema. Do not include explanations outside JSON.
+```
+
+### 15.2 Evaluación de respuesta
+```
+ROLE: Friendly speech therapist.
+TASK: Assess child's answer, identify specific grammatical issues, and return concise, empathetic feedback + one actionable hint.
+OUTPUT: JSON { correct:boolean, message:string, hints:string[], nextSuggestion:string }
+```
+
+### 15.3 Generación de assets (DALL·E)
+```
+ROLE: Children illustrator.
+STYLE: flat, soft colors, high contrast, no text embedded, inclusive.
+TASK: Create character/background aligned with: {theme}, {characters}, {visualStyle}.
+OUTPUT: 1024x1024 PNG, centered subject, simple background.
+```
+
+---
+
+## 16) Pipeline DALL·E → S3
+
+1. Lambda `assets_generate` recibe `theme`, `visualStyle`, `characters`.
+2. Construye prompt seguro; invoca DALL·E (size 1024, n=1).
+3. Valida contenido (seguridad/estética), optimiza (WebP/PNG, 1x/2x), escribe a `s3://ASSETS_BUCKET/assets/...`.
+4. Registra en tabla `Assets` con `checksum`, `style`, `tags`.
+5. Devuelve `s3Key` y `cdnUrl` (vía CloudFront).
+
+---
+
+## 17) Feature Flags y Config Remota
+
+- `games.enabled`: [drag_words, order_sentence, multi_choice]
+- `assets.style`: "flat-illustration-soft"
+- `a11y.highContrast`: true
+- `tts.enabled`: false (MVP)
+
+Endpoint: `GET /v1/config/ui` → usado por frontend al boot.
+
+---
+
+## 18) Roadmap
+
+- **MVP**: 1–2 juegos, 5 temas, progresos básicos, assets estáticos + algunos generados.
+- **v1**: Pack de sprites propio, panel de padres/terapeutas, recomendaciones adaptativas.
+- **v2**: Avatares personalizables, TTS (Polly), más juegos (parejas, categorías), currículo por grado.
+
+---
+
+## 19) Checklist para el asistente GPT‑5 (code‑gen)
+
+1. Crear monorepo con estructura dada.
+2. Generar OpenAPI completa y validadores (pydantic/zod).
+3. Implementar Lambda `stories_generate`, `exercises_generate`, `evaluate`, `progress_post`, `assets_generate`.
+4. Implementar flows Strands (`generate_story_with_game`, `evaluate_answer`, `generate_assets`).
+5. Provisionar infraestructura (Terraform/SAM) y secretos.
+6. Frontend: scaffolding con UI base, GameHost, primera escena `DragWordsScene`.
+7. Integrar autenticación (Cognito Hosted UI o Amplify Auth).
+8. Telemetría (X‑Ray) + pruebas unitarias y E2E.
+9. Documentar READMEs + ADRs clave.
+
+---
+
+## 20) Anexos
+
+### 20.1 Esquema Zod para `GameSpec` (frontend)
+```ts
+import { z } from 'zod'
+
+export const GameSpec = z.object({
+  title: z.string(),
+  locale: z.string(),
+  level: z.number().min(1).max(5),
+  theme: z.string(),
+  visualStyle: z.string(),
+  gameType: z.enum(['drag_words', 'order_sentence', 'multi_choice', 'match_pairs']),
+  scene: z.object({
+    background: z.string(),
+    ambient: z.array(z.string()).optional(),
+    audio: z.object({ narration: z.string().nullable(), sfx: z.array(z.string()).optional() }).optional()
+  }),
+  characters: z.array(z.object({ id: z.string(), sprite: z.string(), mood: z.string().optional() })),
+  exercise: z.object({
+    type: z.string(),
+    payload: z.record(z.any())
+  }),
+  uiHints: z.object({
+    contrast: z.string().optional(),
+    fontScale: z.number().optional(),
+    animations: z.record(z.any()).optional()
+  }).optional(),
+  telemetry: z.object({ sessionId: z.string(), storyId: z.string(), exerciseId: z.string() })
+})
+```
+
+### 20.2 Validador Pydantic (backend)
+```py
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+
+class Character(BaseModel):
+    id: str
+    sprite: str
+    mood: Optional[str] = None
+
+class Scene(BaseModel):
+    background: str
+    ambient: Optional[List[str]] = None
+    audio: Optional[Dict[str, Any]] = None
+
+class ExercisePayload(BaseModel):
+    sentence: str
+    options: List[str]
+    correct: str
+
+class Exercise(BaseModel):
+    type: str
+    payload: Dict[str, Any]
+
+class GameSpec(BaseModel):
+    title: str
+    locale: str
+    level: int
+    theme: str
+    visualStyle: str
+    gameType: str
+    scene: Scene
+    characters: List[Character]
+    exercise: Exercise
+```
+
+---
+
+> **Listo para empezar a codificar**: este documento define contratos, flujos y componentes. Un agente GPT‑5 puede generar los módulos siguiendo la checklist (19), y un equipo humano puede iterar para alcanzar calidad de producción.
+
