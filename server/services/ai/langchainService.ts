@@ -5,6 +5,8 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { JsonOutputParser } from "@langchain/core/output_parsers";
 import { StoryGenerateRequest, GameSpec, EvaluationResponse, Theme, Level } from "@shared/types";
 import { validateContentSafety } from "@shared/validation";
+import { getLevelConfig, getWordRangeForLevel, getGrammarFocusForLevel } from "../../config/levels.js";
+import { buildExercisesTemplate } from "../../config/exerciseTemplates.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -33,27 +35,33 @@ export class LangChainOrchestrator {
     exercises: GameSpec[];
   }> {
     const prompt = PromptTemplate.fromTemplate(`
-      You are a specialized educational content creator for Spanish language learning for children (ages 6-12) with hearing difficulties.
+      You are a specialized educational content creator for Spanish language learning for children and young learners (ages 6-16) with hearing difficulties (hipoacusia neurosensorial bilateral).
 
       Create a story and educational exercises with these requirements:
       - Theme: {theme}
-      - Level: {level} (1=beginner, 5=advanced)
+      - Level: {level} (1-10 scale, from beginner to master)
       - Target word count: {wordCount} words
       - Language: Spanish (Spain)
       - Content must be safe, positive, and age-appropriate
 
-      Level {level} specifications:
-      - Level 1: Simple sentences, basic vocabulary, present tense only
-      - Level 2: Expanded vocabulary, basic past tense, gender agreement focus
-      - Level 3: Complex sentences, multiple tenses, number agreement
-      - Level 4: Compound sentences, subjunctive mood, advanced grammar
-      - Level 5: Complex narratives, all tenses, subordinate clauses
+      LEVEL {level} SPECIFICATIONS (1-10 scale):
+      - Level 1 (Inicial): Simple sentences (SVO), concrete vocabulary, no complex conjugations. Goal: Recognize subject-verb-object
+      - Level 2 (Básico): Adjectives, definite/indefinite articles, simple present tense. Goal: Use articles and basic agreement
+      - Level 3 (Intermedio): Simple connectors (y, pero, porque), present/past tenses. Goal: Build ideas with connectors
+      - Level 4 (Avanzado): Common irregular verbs, plurals, gender agreement. Goal: Reinforce basic spelling
+      - Level 5 (Experto): Brief subordinate clauses, pronouns, compound tenses. Goal: Basic subordinate structures
+      - Level 6 (Intermedio Alto): Complex connectors, perfect tenses, adverbs of manner and time. Goal: Temporal narrative coherence
+      - Level 7 (Avanzado Alto): Compound sentences, precise prepositions. Goal: Master cohesion and connectors
+      - Level 8 (Profesional): Idioms, simple metaphors, descriptive style. Goal: Expressive and creative language use
+      - Level 9 (Literario): Passive voice, indirect speech, style variations. Goal: Advanced analysis and writing
+      - Level 10 (Maestro): Multiple subordinates, mixed tenses, abstract vocabulary. Goal: Free production with style and complete orthographic correction
 
       Generate content that helps with:
       - Reading comprehension
-      - Grammar (gender/number agreement, articles, verb conjugation)
-      - Vocabulary expansion
-      - Sentence structure
+      - Grammar (gender/number agreement, articles, verb conjugation, complex structures)
+      - Vocabulary expansion (from concrete to abstract based on level)
+      - Sentence structure and cohesion
+      - Spelling and accentuation (increasingly important at higher levels)
 
       VOCABULARY PRE-TEACHING (CRITICAL for children with hearing difficulties):
       - Select 3-5 KEY words from the story that are essential for comprehension
@@ -84,75 +92,28 @@ export class LangChainOrchestrator {
           "level": {level}
         }},
         "exercises": [
-          {{
-            "gameType": "drag_words",
-            "title": "Complete the sentence",
-            "exercise": {{
-              "type": "drag_words",
-              "payload": {{
-                "sentence": "Sentence with ___ blank",
-                "options": ["correct", "wrong1", "wrong2"],
-                "correct": "correct",
-                "explanation": "Por qué esta respuesta es correcta (regla gramatical o contexto)",
-                "hints": ["Pista 1 sutil", "Pista 2 más específica"]
-              }}
-            }}
-          }},
-          {{
-            "gameType": "order_sentence",
-            "title": "Order the words",
-            "exercise": {{
-              "type": "order_sentence", 
-              "payload": {{
-                "words": ["word1", "word2", "word3", "word4"],
-                "correct": "word1 word2 word3 word4",
-                "explanation": "Explicación del orden correcto (estructura de la oración)",
-                "hints": ["Pista sobre el sujeto", "Pista sobre el verbo"]
-              }}
-            }}
-          }},
-          {{
-            "gameType": "multi_choice",
-            "title": "Reading comprehension",
-            "exercise": {{
-              "type": "multi_choice",
-              "payload": {{
-                "question": "Comprehension question about the story",
-                "choices": ["Option A", "Option B", "Option C", "Option D"],
-                "correctIndex": 0,
-                "explanation": "Why this answer is correct",
-                "hints": ["Pista sobre dónde buscar en la historia", "Pista más directa"]
-              }}
-            }}
-          }},
-          {{
-            "gameType": "free_writing",
-            "title": "Redacción libre",
-            "exercise": {{
-              "type": "free_writing",
-              "payload": {{
-                "prompt": "Pregunta abierta sobre la historia que requiera redacción (ej: ¿Qué aprendiste de esta historia? ¿Cómo te sentirías tú en esa situación?)",
-                "minLength": {minLength},
-                "maxLength": {maxLength},
-                "rubric": [
-                  "Ortografía correcta",
-                  "Concordancia de género y número",
-                  "Uso apropiado de verbos",
-                  "Coherencia y cohesión"
-                ]
-              }}
-            }}
-          }}
+          {exercisesTemplate}
         ]
       }}
 
       Focus on these grammar points for level {level}:
       {grammarFocus}
+
+      IMPORTANT: Generate exercises using ONLY these game types appropriate for level {level}:
+      {gameTypes}
+
+      Include templates for these advanced game types if applicable:
+      - rewrite_sentence: Provide a sentence with errors for the student to rewrite correctly
+      - find_error: Present a sentence and ask student to identify the grammatical error
+      - contextual_choice: Multiple choice question requiring deep contextual understanding
     `);
 
-    const grammarFocus = this.getGrammarFocusForLevel(request.level);
-    const wordCount = this.getWordCountForLevel(request.level);
+    const levelConfig = getLevelConfig(request.level);
+    const grammarFocus = getGrammarFocusForLevel(request.level);
+    const wordCount = getWordRangeForLevel(request.level);
+    const gameTypes = levelConfig.gameTypes.join(", ");
     const { minLength, maxLength } = this.getWritingLengthForLevel(request.level);
+    const exercisesTemplate = buildExercisesTemplate(levelConfig.gameTypes, minLength, maxLength);
 
     const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
 
@@ -162,6 +123,8 @@ export class LangChainOrchestrator {
         level: request.level,
         wordCount,
         grammarFocus,
+        gameTypes,
+        exercisesTemplate,
         minLength,
         maxLength,
       });
@@ -208,7 +171,7 @@ export class LangChainOrchestrator {
       }}
     `);
 
-    const grammarFocus = this.getGrammarFocusForLevel(level);
+    const grammarFocus = getGrammarFocusForLevel(level);
     const chain = RunnableSequence.from([prompt, this.llm, this.parser]);
 
     try {
@@ -262,34 +225,7 @@ export class LangChainOrchestrator {
     }
   }
 
-  private getGrammarFocusForLevel(level: number): string {
-    const focuses = {
-      1: "Articles (el, la, los, las), basic nouns, present tense verbs",
-      2: "Gender agreement (niño/niña), plural forms, past tense introduction", 
-      3: "Verb conjugation (yo, tú, él/ella), adjective agreement, future tense",
-      4: "Complex sentences, subjunctive mood, prepositions, relative pronouns",
-      5: "Advanced grammar, subordinate clauses, conditional mood, literary devices",
-      6: "Literary devices, advanced verb moods, nuanced register",
-      7: "Academic writing, formal discourse markers, complex argumentation",
-      8: "Advanced stylistics, rhetorical structures, sophisticated vocabulary",
-      9: "Professional writing, technical precision, genre-specific conventions",
-      10: "Expert-level grammar, all linguistic registers, creative language use"
-    };
-    
-    return focuses[level as keyof typeof focuses] || focuses[1];
-  }
-
-  private getWordCountForLevel(level: number): string {
-    const ranges = {
-      1: "50-80",
-      2: "80-100", 
-      3: "100-130",
-      4: "130-160",
-      5: "150-200"
-    };
-    
-    return ranges[level as keyof typeof ranges] || "50-80";
-  }
+  // Removed - now using centralized level config from ../config/levels.ts
 
   private getWritingLengthForLevel(level: number): { minLength: number; maxLength: number } {
     const lengths = {
@@ -331,7 +267,7 @@ export class LangChainOrchestrator {
 
       Return ONLY valid JSON:
       {{
-        "recommendedLevel": 1-5,
+        "recommendedLevel": 1-10,
         "focusAreas": ["grammar area 1", "grammar area 2"],
         "nextExercises": ["exercise type 1", "exercise type 2", "exercise type 3"],
         "reasoning": "Brief explanation of recommendations"
@@ -368,7 +304,7 @@ export class LangChainOrchestrator {
     strengths: string[];
     correctedText?: string;
   }> {
-    const grammarFocus = this.getGrammarFocusForLevel(level);
+    const grammarFocus = getGrammarFocusForLevel(level);
     const rubricText = rubric.length > 0 ? rubric.join(', ') : 'coherencia, ortografía, gramática';
 
     const prompt = PromptTemplate.fromTemplate(`

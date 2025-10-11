@@ -67,22 +67,32 @@ Preferred communication style: Simple, everyday language.
 
 2. **Stories Table**
    - AI-generated educational stories
-   - Level-based difficulty (1-5)
+   - Level-based difficulty (1-10) with progressive complexity
    - JSON pages array with text and image URLs
-   - AI metadata tracking generation parameters
+   - AI metadata: wordCount, complexityIndex, grammar targets
+   - Adaptive word ranges: 50-80 (Level 1) to 400-500 (Level 10)
 
 3. **Exercises Table**
    - Game activities linked to stories
-   - Game types: drag_words, order_sentence, complete_words, multi_choice
+   - Implemented game types: drag_words, order_sentence, complete_words, multi_choice, free_writing
+   - Planned advanced types: rewrite_sentence, find_error, contextual_choice (templates ready, frontend components pending)
    - JSON exercise data and correct answers
+   - Difficulty and focus metadata for adaptive learning
    - Hints system for scaffolded learning
 
 4. **Progress Table**
    - User performance tracking
    - Score (0-100), time spent, attempt count
+   - Enhanced metrics: pointsEarned, accuracy, bonus, streak tracking
    - Links to user, exercise, and story
 
-5. **Assets Table** (referenced in workflow)
+5. **User Stories Table**
+   - Tracks user's story history and progress
+   - Denormalized level field for efficient queries
+   - Status tracking: not_started, in_progress, completed
+   - Composite indexes: (userId, level), (userId, status), (userId, storyId)
+
+6. **Assets Table** (referenced in workflow)
    - Stores generated images and multimedia
    - Version control for AI-generated content
 
@@ -94,10 +104,12 @@ Preferred communication style: Simple, everyday language.
 ### Authentication & Authorization
 
 **Current Implementation:**
-- Simple session-based authentication
-- Bearer token format: `username:id:level`
-- Session ID as Base64 encoded user data
-- Middleware: `requireAuth` for protected routes
+- Google OAuth 2.0 authentication via Passport.js
+- Session-based authentication with PostgreSQL session store
+- Deterministic username collision handling with suffix system
+- Security: Backend validation for OAuth callbacks prevents forged logins
+- Session middleware: `requireAuth` for protected routes
+- GDPR/COPPA compliant: minimal data collection for children
 
 **Design for Production:**
 - AWS Cognito JWT tokens (referenced in architecture)
@@ -111,6 +123,8 @@ Preferred communication style: Simple, everyday language.
 - **Model**: GPT-5 (latest OpenAI model as of August 2025)
 - **Temperature**: Not supported in GPT-5
 - **Token limits**: Uses `max_completion_tokens` instead of deprecated `max_tokens`
+- **Dynamic Exercise Generation**: Uses structural template system (`server/config/exerciseTemplates.ts`) to generate level-appropriate exercises
+- **Level Configuration**: Centralized in `server/config/levels.ts` with 10 progressive difficulty levels
 
 **Multi-Modal Workflow (LangGraph):**
 1. **Story Generation Node**: Creates age-appropriate Spanish content based on theme and level
@@ -124,11 +138,25 @@ Preferred communication style: Simple, everyday language.
 - Grammar level checking for educational appropriateness
 - Safety filters before content delivery
 
-**Exercise Types:**
+**Exercise Types (Implemented):**
 - Drag and drop words (DnD with HTML5 backend)
 - Sentence ordering (animated word tiles)
 - Word completion (input-based)
 - Multiple choice (with visual feedback)
+- Free writing (open-ended composition)
+
+**Exercise Types (Planned - Templates Ready):**
+- Rewrite sentence (error correction)
+- Find error (grammatical error identification)
+- Contextual choice (deep comprehension and inference)
+
+**Level System (1-10):**
+- **Levels 1-2**: Basic (50-100 words) - drag_words, multi_choice
+- **Level 3**: Intermediate (100-130 words) - order_sentence, complete_words, multi_choice
+- **Levels 4-10**: Advanced/Expert (130-500 words) - order_sentence, complete_words, multi_choice, free_writing
+- Progressive grammar complexity: simple sentences → compound structures → advanced discourse
+- Adaptive word ranges and vocabulary based on level
+- Dynamic exercise templates adjust to level-specific grammar targets
 
 ## External Dependencies
 
