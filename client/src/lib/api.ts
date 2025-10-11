@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "./auth";
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -7,6 +9,7 @@ export async function apiRequest(
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: 'include',
