@@ -27,12 +27,26 @@ export const useAuthStore = create<AuthState>()(
       login: async (username: string) => {
         set({ isLoading: true });
         try {
-          // Generate a proper UUID for the user
-          const uuid = crypto.randomUUID();
+          // Call backend login endpoint to create/get user
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Login failed');
+          }
+
+          const result = await response.json();
+          const userData = result.data.user;
+
           const user: User = {
-            id: uuid,
-            username: username,
-            level: 1,
+            id: userData.id,
+            username: userData.username,
+            level: userData.level,
             createdAt: new Date(),
           };
           

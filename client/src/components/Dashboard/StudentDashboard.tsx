@@ -59,11 +59,18 @@ export default function StudentDashboard() {
   const generateStoryMutation = useMutation({
     mutationFn: async (params: { theme: string; level: number }) => {
       const response = await apiRequest('POST', '/api/stories/generate', params);
-      return response.json();
+      const result = await response.json();
+      return result.data || result;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/stories'] });
-      navigate(`/story/${data.storyId}`);
+      const storyId = data.storyId || data.id;
+      if (storyId) {
+        navigate(`/story/${storyId}`);
+      } else {
+        console.error('No storyId in response:', data);
+        toast.error("Error: Historia generada pero ID no encontrado");
+      }
     },
     onError: (error) => {
       console.error('Story generation error:', error);
