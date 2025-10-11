@@ -68,7 +68,7 @@ export class MultimodalLearningWorkflow {
         storyContent: {
           title: result.story.title,
           pages: result.story.pages,
-          vocabulary: [],
+          vocabulary: result.story.vocabulary || [],
           grammar: [],
           content: result.story.pages.map((p: any) => p.text).join(' '),
         },
@@ -112,28 +112,56 @@ export class MultimodalLearningWorkflow {
   }
 
   private async generateImagesParallel(state: WorkflowState): Promise<string[]> {
-    if (!state.storyPages || state.storyPages.length === 0) {
-      console.log("[Workflow] No pages to generate images for");
-      return [];
+    const allImagePromises: Promise<string>[] = [];
+    
+    // Generate story page images
+    if (state.storyPages && state.storyPages.length > 0) {
+      console.log(`[Workflow] Generating ${state.storyPages.length} story page images in parallel`);
+      const pageImagePromises = state.storyPages.map(async (page: any, index: number) => {
+        const imagePrompt = `Illustration for children's Spanish learning story: ${page.text}. Scene ${index + 1}`;
+        return await this.orchestrator.generateImage(imagePrompt, "flat-illustration");
+      });
+      allImagePromises.push(...pageImagePromises);
+    }
+    
+    // Generate vocabulary images
+    const vocabulary = state.storyContent?.vocabulary || [];
+    if (vocabulary.length > 0) {
+      console.log(`[Workflow] Generating ${vocabulary.length} vocabulary images in parallel`);
+      const vocabImagePromises = vocabulary.map(async (vocabItem: any) => {
+        if (vocabItem.imagePrompt) {
+          return await this.orchestrator.generateImage(vocabItem.imagePrompt, "simple-object-illustration");
+        }
+        return "";
+      });
+      allImagePromises.push(...vocabImagePromises);
     }
 
-    console.log(`[Workflow] Generating ${state.storyPages.length} images in parallel`);
+    const allImageUrls = await Promise.all(allImagePromises);
     
-    const imagePromises = state.storyPages.map(async (page: any, index: number) => {
-      const imagePrompt = `Illustration for children's Spanish learning story: ${page.text}. Scene ${index + 1}`;
-      return await this.orchestrator.generateImage(imagePrompt, "flat-illustration");
-    });
-
-    const imageUrls = await Promise.all(imagePromises);
+    // Split results: first are page images, rest are vocabulary images
+    const pageImageCount = state.storyPages?.length || 0;
+    const pageImageUrls = allImageUrls.slice(0, pageImageCount);
+    const vocabImageUrls = allImageUrls.slice(pageImageCount);
     
     // Update story pages with image URLs
-    state.storyPages = state.storyPages.map((page: any, index: number) => ({
-      ...page,
-      imageUrl: imageUrls[index] || "",
-    }));
+    if (state.storyPages) {
+      state.storyPages = state.storyPages.map((page: any, index: number) => ({
+        ...page,
+        imageUrl: pageImageUrls[index] || "",
+      }));
+    }
+    
+    // Update vocabulary with image URLs
+    if (state.storyContent && vocabulary.length > 0) {
+      state.storyContent.vocabulary = vocabulary.map((vocabItem: any, index: number) => ({
+        ...vocabItem,
+        imageUrl: vocabImageUrls[index] || "",
+      }));
+    }
 
-    console.log(`[Workflow] Generated ${imageUrls.filter(url => url).length} images successfully`);
-    return imageUrls.filter(url => url);
+    console.log(`[Workflow] Generated ${allImageUrls.filter(url => url).length} images successfully (${pageImageUrls.filter(url => url).length} pages + ${vocabImageUrls.filter(url => url).length} vocabulary)`);
+    return allImageUrls.filter(url => url);
   }
 
   private async saveStoryToDb(state: WorkflowState): Promise<string> {
@@ -148,10 +176,10 @@ export class MultimodalLearningWorkflow {
       level: state.level,
       theme: state.theme || "daily life",
       pages: state.storyPages,
+      vocabulary: state.storyContent.vocabulary || [],
       aiMetadata: {
-        vocabulary: state.storyContent.vocabulary || [],
         grammar: state.storyContent.grammar || [],
-        generatedBy: "gpt-4",
+        generatedBy: "gpt-5",
         generatedAt: new Date().toISOString(),
       },
     }).returning();

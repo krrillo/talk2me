@@ -9,11 +9,13 @@ import { Story, GameSpec } from "@/lib/types";
 import gsap from "gsap";
 import { TTSControls } from "@/components/TTS/TTSControls";
 import { apiRequest } from "@/lib/api";
+import { VocabularyPreview } from "./VocabularyPreview";
 
 export default function StoryViewer() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
+  const [showVocabulary, setShowVocabulary] = useState(true);
 
   // Fetch story data
   const { data: storyData, isLoading, error } = useQuery({
@@ -105,6 +107,18 @@ export default function StoryViewer() {
 
   const currentStoryPage = story.pages[currentPage];
   const totalPages = story.pages.length;
+
+  // Show vocabulary first if available
+  const hasVocabulary = story.vocabulary && Array.isArray(story.vocabulary) && story.vocabulary.length > 0;
+  
+  if (hasVocabulary && showVocabulary && story.vocabulary) {
+    return (
+      <VocabularyPreview
+        vocabulary={story.vocabulary}
+        onContinue={() => setShowVocabulary(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">

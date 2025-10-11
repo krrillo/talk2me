@@ -57,6 +57,13 @@ export class LangChainOrchestrator {
       - Vocabulary expansion
       - Sentence structure
 
+      VOCABULARY PRE-TEACHING (CRITICAL for children with hearing difficulties):
+      - Select 3-5 KEY words from the story that are essential for comprehension
+      - Prioritize words that appear multiple times or are central to the story
+      - Provide simple, child-friendly definitions (max 10 words)
+      - Create example sentences that differ from the story but use the same word
+      - Generate clear, concrete imagePrompts for each word (objects, actions, emotions)
+
       IMPORTANT: Return ONLY valid JSON in this exact format:
 
       {{
@@ -66,6 +73,14 @@ export class LangChainOrchestrator {
             {{"text": "First page text (engaging opening)", "imagePrompt": "DALL-E prompt for illustration"}},
             {{"text": "Second page text (story development)", "imagePrompt": "DALL-E prompt for illustration"}},
             {{"text": "Final page text (satisfying conclusion)", "imagePrompt": "DALL-E prompt for illustration"}}
+          ],
+          "vocabulary": [
+            {{
+              "word": "palabra clave",
+              "definition": "Definición simple para niños",
+              "example": "Frase de ejemplo usando la palabra",
+              "imagePrompt": "DALL-E prompt for simple illustration of the word"
+            }}
           ],
           "theme": "{theme}",
           "level": {level}

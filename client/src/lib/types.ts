@@ -12,6 +12,7 @@ export interface Story {
   level: number;
   theme: string;
   pages: StoryPage[];
+  vocabulary?: VocabularyItem[];
   createdAt: Date;
   completed?: boolean;
   score?: number;
@@ -21,6 +22,14 @@ export interface StoryPage {
   text: string;
   image?: string;
   imageUrl?: string;
+}
+
+export interface VocabularyItem {
+  word: string;
+  definition: string;
+  example: string;
+  imageUrl?: string;
+  imagePrompt?: string;
 }
 
 export interface GameSpec {

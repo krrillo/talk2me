@@ -21,6 +21,7 @@ export const stories = pgTable("stories", {
   level: integer("level").notNull(),
   theme: varchar("theme", { length: 50 }).notNull(),
   pages: jsonb("pages").notNull(), // Array of story pages with text and images
+  vocabulary: jsonb("vocabulary").default([]), // Pre-teaching vocabulary with definitions and images
   aiMetadata: jsonb("ai_metadata"), // Generation prompts, model info, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
