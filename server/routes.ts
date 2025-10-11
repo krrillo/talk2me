@@ -6,6 +6,7 @@ import exerciseRoutes from "./routes/exercises";
 import progressRoutes from "./routes/progress";
 import evaluationRoutes from "./routes/evaluation";
 import ttsRoutes from "./routes/tts";
+import gamesRoutes from "./routes/games";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register API routes
@@ -15,6 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/progress', progressRoutes);
   app.use('/api/evaluation', evaluationRoutes);
   app.use('/api/tts', ttsRoutes);
+  app.use('/api/games', gamesRoutes);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
