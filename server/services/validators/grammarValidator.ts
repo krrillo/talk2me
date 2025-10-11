@@ -90,6 +90,15 @@ export function validateCompleteWords(
     errors.push('La oración contiene más de un espacio en blanco');
   }
   
+  // Regla 1b: Verificar que ___ no tenga espacios alrededor (formato correcto)
+  if (sentence.includes(' ___ ')) {
+    errors.push('El espacio en blanco tiene espacios alrededor. Usar "___" sin espacios: ejemplo "palabra___palabra" no "palabra ___ palabra"');
+  } else if (sentence.includes(' ___')) {
+    errors.push('El espacio en blanco tiene un espacio antes. Usar "___" pegado a la palabra anterior: ejemplo "palabra___" no "palabra ___"');
+  } else if (sentence.includes('___ ')) {
+    errors.push('El espacio en blanco tiene un espacio después. Usar "___" pegado a la palabra siguiente: ejemplo "___palabra" no "___ palabra"');
+  }
+  
   // Regla 2: La palabra correcta no debe estar vacía
   if (!correctWord || correctWord.trim().length === 0) {
     errors.push('La palabra correcta está vacía');
