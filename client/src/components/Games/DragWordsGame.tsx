@@ -127,6 +127,8 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [attempts, setAttempts] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const gameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -180,12 +182,45 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
           repeat: 5,
           ease: "power2.inOut"
         });
-        toast.error(`No es correcto. La respuesta era: ${spec.exercise?.payload?.correct}`);
         
+        // Retroalimentación progresiva según intentos
+        const hints = spec.exercise?.payload?.hints || [];
+        const explanation = spec.exercise?.payload?.explanation;
+        
+        if (attempts === 0 && hints[0]) {
+          // Primer intento: pista sutil
+          setFeedbackMessage(`💡 Pista: ${hints[0]}`);
+          toast.info("¡Inténtalo de nuevo!");
+        } else if (attempts === 1 && hints[1]) {
+          // Segundo intento: pista más específica
+          setFeedbackMessage(`💡 Pista: ${hints[1]}`);
+          toast.info("¡Casi! Piensa un poco más...");
+        } else if (attempts >= 2) {
+          // Tercer intento: mostrar explicación completa
+          setFeedbackMessage(
+            explanation 
+              ? `✨ ${explanation}\n\n✅ La respuesta correcta es: "${spec.exercise?.payload?.correct}"`
+              : `✅ La respuesta correcta es: "${spec.exercise?.payload?.correct}"`
+          );
+          toast.warning("Te mostramos la respuesta");
+          
+          // Después de 3 intentos, dar opción de completar con score mínimo de 40
+          setTimeout(() => {
+            setShowResult(true);
+            onComplete({ correct: false, score: 40 });
+          }, 4000);
+        }
+        
+        setShowFeedback(true);
+        
+        // Devolver la palabra incorrecta a disponibles para que pueda intentar de nuevo
         setTimeout(() => {
-          setShowResult(true);
-          onComplete({ correct: false, score: 0 });
-        }, 2000);
+          if (droppedWord) {
+            setAvailableWords(prev => [...prev, droppedWord]);
+            setDroppedWord(null);
+          }
+          setShowFeedback(false);
+        }, 3000);
       }
     }
   };
@@ -245,6 +280,25 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
               </div>
             </div>
 
+            {/* Feedback Card */}
+            {showFeedback && feedbackMessage && (
+              <div className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl animate-pulse">
+                <div className="flex items-start gap-4">
+                  <div className="text-4xl">
+                    {attempts === 0 ? "💡" : attempts === 1 ? "🤔" : "✨"}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      {attempts === 0 ? "Pista" : attempts === 1 ? "Otra pista" : "Explicación"}
+                    </h3>
+                    <p className="text-gray-800 text-base leading-relaxed whitespace-pre-line">
+                      {feedbackMessage}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Controls */}
             <div className="flex justify-center gap-4">
               <Button
@@ -259,7 +313,7 @@ function DragWordsGame({ spec, onComplete }: DragWordsGameProps) {
                 onClick={handleCheck}
                 variant="game"
                 size="lg"
-                disabled={!droppedWord || showResult}
+                disabled={!droppedWord || showResult || showFeedback}
               >
                 Comprobar respuesta
               </Button>

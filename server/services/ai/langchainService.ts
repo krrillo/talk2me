@@ -92,7 +92,9 @@ export class LangChainOrchestrator {
               "payload": {{
                 "sentence": "Sentence with ___ blank",
                 "options": ["correct", "wrong1", "wrong2"],
-                "correct": "correct"
+                "correct": "correct",
+                "explanation": "Por qué esta respuesta es correcta (regla gramatical o contexto)",
+                "hints": ["Pista 1 sutil", "Pista 2 más específica"]
               }}
             }}
           }},
@@ -103,7 +105,9 @@ export class LangChainOrchestrator {
               "type": "order_sentence", 
               "payload": {{
                 "words": ["word1", "word2", "word3", "word4"],
-                "correct": "word1 word2 word3 word4"
+                "correct": "word1 word2 word3 word4",
+                "explanation": "Explicación del orden correcto (estructura de la oración)",
+                "hints": ["Pista sobre el sujeto", "Pista sobre el verbo"]
               }}
             }}
           }},
@@ -116,7 +120,8 @@ export class LangChainOrchestrator {
                 "question": "Comprehension question about the story",
                 "choices": ["Option A", "Option B", "Option C", "Option D"],
                 "correctIndex": 0,
-                "explanation": "Why this answer is correct"
+                "explanation": "Why this answer is correct",
+                "hints": ["Pista sobre dónde buscar en la historia", "Pista más directa"]
               }}
             }}
           }}
