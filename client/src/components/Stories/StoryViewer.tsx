@@ -49,7 +49,7 @@ export default function StoryViewer() {
 
   const story = storyData as Story | undefined;
 
-  // Fetch associated game
+  // Fetch associated games (all exercises)
   const { data: gameData } = useQuery({
     queryKey: [`/api/stories/${storyId}/game`],
     queryFn: async () => {
@@ -60,7 +60,7 @@ export default function StoryViewer() {
     enabled: !!storyId,
   });
 
-  const gameSpec = gameData as GameSpec | undefined;
+  const gameSpecs = gameData as GameSpec[] | undefined;
 
   useEffect(() => {
     // Animate page entrance
@@ -118,11 +118,13 @@ export default function StoryViewer() {
     navigate('/dashboard');
   };
 
-  const handleStartGame = () => {
-    if (gameSpec) {
-      navigate(`/game/${gameSpec.id}`);
+  const handleStartGames = () => {
+    if (gameSpecs && gameSpecs.length > 0) {
+      // Navigate to first game with all game IDs and index
+      const gameIds = gameSpecs.map(g => g.id).join(',');
+      navigate(`/game/${gameSpecs[0].id}?games=${gameIds}&index=0`);
     } else {
-      toast.error("No hay juego disponible para esta historia");
+      toast.error("No hay juegos disponibles para esta historia");
     }
   };
 
@@ -337,23 +339,23 @@ export default function StoryViewer() {
                 </div>
 
                 {/* Game Button (shown on last page) */}
-                {currentPage === totalPages - 1 && gameSpec && (
+                {currentPage === totalPages - 1 && gameSpecs && gameSpecs.length > 0 && (
                   <div className="mt-8 text-center">
                     <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
                       <h3 className="text-xl font-bold text-gray-800 mb-2">
                         ¡Historia completada! 🎉
                       </h3>
                       <p className="text-gray-600 mb-4">
-                        Ahora pon a prueba tu comprensión con un juego divertido
+                        Ahora pon a prueba tu comprensión con {gameSpecs.length} juegos divertidos
                       </p>
                       <Button
-                        onClick={handleStartGame}
+                        onClick={handleStartGames}
                         variant="game"
                         size="xl"
                         className="animate-pulse hover:animate-none"
                       >
                         <Play className="w-5 h-5 mr-2" />
-                        ¡Jugar ahora!
+                        ¡Jugar {gameSpecs.length} juegos!
                       </Button>
                     </div>
                   </div>

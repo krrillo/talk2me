@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -13,6 +13,13 @@ import { GameSpec } from "@/lib/types";
 export default function GameHost() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Parse game IDs and index from URL params
+  const gameIds = searchParams.get('games')?.split(',').filter(Boolean) || (gameId ? [gameId] : []);
+  const currentGameIndex = parseInt(searchParams.get('index') || '0', 10);
+  
+  // Use gameId from URL directly (React Router will update this when we navigate)
   const { data: gameSpec, isLoading, error } = useGameSpec(gameId!);
   const [currentGame, setCurrentGame] = useState<GameSpec | null>(null);
 
@@ -23,9 +30,19 @@ export default function GameHost() {
   }, [gameSpec]);
 
   const handleGameComplete = (result: { correct: boolean; score: number }) => {
-    // Save progress and navigate back
     console.log("Game completed:", result);
-    navigate("/dashboard");
+    
+    // Check if there are more games
+    const nextIndex = currentGameIndex + 1;
+    if (nextIndex < gameIds.length) {
+      // Navigate to next game with updated params
+      const nextGameId = gameIds[nextIndex];
+      const gamesParam = gameIds.join(',');
+      navigate(`/game/${nextGameId}?games=${gamesParam}&index=${nextIndex}`);
+    } else {
+      // All games completed, return to dashboard
+      navigate("/dashboard");
+    }
   };
 
   const handleGoBack = () => {
@@ -93,7 +110,9 @@ export default function GameHost() {
           </Button>
           <div className="text-center">
             <h1 className="text-xl font-bold text-gray-800">{currentGame.title}</h1>
-            <p className="text-sm text-gray-600">Nivel {currentGame.level}</p>
+            <p className="text-sm text-gray-600">
+              Nivel {currentGame.level} • Juego {currentGameIndex + 1} de {gameIds.length}
+            </p>
           </div>
           <div className="w-20"></div> {/* Spacer for alignment */}
         </div>

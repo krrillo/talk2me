@@ -116,26 +116,24 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// Get story with associated game
+// Get story with associated games (all exercises)
 router.get('/:storyId/game', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { storyId } = req.params;
 
-    // Get exercises for this story
+    // Get all exercises for this story
     const exercises = await exerciseGeneratorService.getExercisesByStoryId(storyId);
     
     if (exercises.length === 0) {
-      return res.status(404).json(createErrorResponse('No game found for this story'));
+      return res.status(404).json(createErrorResponse('No games found for this story'));
     }
 
-    // Return the first exercise as the main game
-    const mainGame = exercises[0];
-    
-    res.json(createSuccessResponse(mainGame));
+    // Return all exercises so user can play all 3 games
+    res.json(createSuccessResponse(exercises));
 
   } catch (error) {
-    console.error('Get story game error:', error);
-    res.status(500).json(createErrorResponse('Failed to fetch story game'));
+    console.error('Get story games error:', error);
+    res.status(500).json(createErrorResponse('Failed to fetch story games'));
   }
 });
 
