@@ -68,56 +68,6 @@ Utiliza inteligencia artificial para generar historias personalizadas y ejercici
 
 ---
 
-## 📁 Estructura del Proyecto
-
-hablaconmigo/
-├── client/                    # Frontend React
-│   ├── src/
-│   │   ├── components/       # Componentes React
-│   │   │   ├── Games/       # Componentes de ejercicios
-│   │   │   ├── Story/       # Visualización de historias
-│   │   │   └── ui/          # Componentes UI base (Radix)
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── lib/             # Utilidades y tipos
-│   │   ├── pages/           # Páginas principales
-│   │   └── App.tsx          # Componente raíz
-│   └── public/              # Archivos estáticos
-│
-├── server/                   # Backend Express
-│   ├── config/              # Configuración
-│   │   ├── levels.ts        # Sistema de 10 niveles
-│   │   ├── exerciseTemplates.ts      # Templates básicos
-│   │   └── enhancedExerciseTemplates.ts  # Templates mejorados
-│   ├── routes/              # Rutas API
-│   │   ├── auth.ts          # Autenticación OAuth
-│   │   ├── stories.ts       # Generación de historias
-│   │   ├── exercises.ts     # Ejercicios educativos
-│   │   └── progress.ts      # Progreso del usuario
-│   ├── services/            # Lógica de negocio
-│   │   ├── ai/             # Servicios de IA
-│   │   │   ├── langchainService.ts      # Orquestador principal
-│   │   │   └── exerciseRegenerator.ts   # Regeneración con feedback
-│   │   ├── validators/     # Validación pedagógica
-│   │   │   ├── grammarValidator.ts      # Validación gramatical
-│   │   │   ├── coherenceValidator.ts    # Validación de coherencia
-│   │   │   └── pedagogicalValidator.ts  # Validación pedagógica
-│   │   └── linguistic/     # Análisis lingüístico
-│   │       └── sentenceExtractor.ts     # Extractor de oraciones
-│   ├── data/               # Datos estáticos
-│   │   └── fallbackExercises.ts  # Ejercicios de respaldo
-│   ├── middleware/         # Middleware Express
-│   │   └── auth.ts         # Middleware de autenticación
-│   └── index.ts            # Punto de entrada del servidor
-│
-├── shared/                  # Código compartido
-│   ├── schema.ts           # Schema de base de datos (Drizzle)
-│   ├── types.ts            # Tipos TypeScript compartidos
-│   └── validation.ts       # Schemas de validación (Zod)
-│
-└── package.json            # Dependencias y scripts
-
----
-
 ## 🎯 Sistema de Niveles Progresivos
 
 **HablaConmigo** implementa un sistema de 10 niveles que aumenta gradualmente la complejidad lingüística:
